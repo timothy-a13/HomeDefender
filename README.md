@@ -374,5 +374,3 @@ ffmpeg \
 - [ASP.NET Core Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
 
 ---
-
-HomeDefender is a computer-science capstone research project focused on integrating edge video publishing, real-time multi-object tracking, abnormal-behavior rules, inter-process notifications, and a complete web-based monitoring interface.
