@@ -362,17 +362,7 @@ ffmpeg \
   rtmp://<server-ip>/live/<camera-key>
 ```
 
-## 授權與第三方專案
-
-根目錄目前沒有獨立的專案授權聲明。`Core/` 中引用的 YOLOv8 tracking 程式附有 GPL-3.0 授權及 citation 資訊，其他內嵌函式庫也可能有各自的授權條款。
-
-正式公開或再散布前，請：
-
-1. 為 HomeDefender 自有程式加入明確的 `LICENSE`。
-2. 保留所有第三方專案的授權與著作權聲明。
-3. 確認自有程式採用的授權與 GPL-3.0 及其他相依套件相容。
-
-主要相關專案：
+## 相關專案
 
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
 - [OC-SORT](https://github.com/noahcao/OC_SORT)

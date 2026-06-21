@@ -364,17 +364,7 @@ ffmpeg \
   rtmp://<server-ip>/live/<camera-key>
 ```
 
-## License and Third-Party Projects
-
-The repository root currently has no independent license declaration. The YOLOv8 tracking code under `Core/` includes GPL-3.0 licensing and citation information, while other bundled libraries may have their own terms.
-
-Before public redistribution:
-
-1. Add an explicit `LICENSE` for HomeDefender's original code.
-2. Preserve all third-party license and copyright notices.
-3. Verify that the chosen project license is compatible with GPL-3.0 and all other dependencies.
-
-Major related projects:
+## Related Projects
 
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
 - [OC-SORT](https://github.com/noahcao/OC_SORT)

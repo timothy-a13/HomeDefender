@@ -1,0 +1,11 @@
+HomeDefender
+Copyright (C) 2023 HomeDefender contributors
+
+Unless a file or directory states otherwise, HomeDefender's original source
+code is licensed under the GNU General Public License version 3 only
+(GPL-3.0-only). See LICENSE for the complete terms.
+
+This repository also contains or interacts with third-party software that
+remains under its respective copyright and license terms. See
+THIRD_PARTY_NOTICES.md and the license files retained beside bundled
+third-party materials.
