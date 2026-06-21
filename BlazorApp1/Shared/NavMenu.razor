@@ -1,0 +1,102 @@
+﻿@using BlazorApp1.Data
+@using Blazored.SessionStorage
+
+@inject SessionManager Session
+@inject EventManager Events
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="LiveStream">居家安全系統</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        @if (User_nickname == string.Empty)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/LoginPage" >
+                    <span class="oi oi-account-login" aria-hidden="true"></span> 登入
+                </NavLink>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/UserUI" Match="NavLinkMatch.All">
+                    <span class="oi oi-person" aria-hidden="true"></span> @User_nickname
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/LiveStream" Match="NavLinkMatch.All">
+                    <span class="oi oi-video" aria-hidden="true"></span> 即時串流
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/History" Match="NavLinkMatch.All">
+                    <span class="oi oi-media-play" aria-hidden="true"></span> 歷史影像
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/Dangerous" Match="NavLinkMatch.All">
+                    <span class="oi oi-warning" aria-hidden="true"></span> 危險片段
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/Record" Match="NavLinkMatch.All">
+                    <span class="oi oi-folder" aria-hidden="true"></span> 錄製片段
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/ChartPage" Match="NavLinkMatch.All">
+                    <span class="oi oi-bar-chart" aria-hidden="true"></span> 圖表
+                </NavLink>
+            </div>
+
+            //<button class="btn" @onclick="Logout">登出</button>
+        }
+    </nav>
+    
+</div>
+
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private string User_nickname = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await islogin();
+        Events.NewEvent<NicknameArgs>("OnNicknameChanged", OnNameChanged);
+    }
+
+    public async Task islogin()
+    {
+        var nickname = await Session.GetElement<string>("nickname");
+        if (nickname.Value != null)
+        {
+            User_nickname = nickname.Value;
+        }
+    }
+
+    public void OnNameChanged(object? sender, NicknameArgs args)
+    {
+        if (args.Nickname is not null)
+        {
+            User_nickname = args.Nickname;
+            StateHasChanged();
+        }
+    }
+}

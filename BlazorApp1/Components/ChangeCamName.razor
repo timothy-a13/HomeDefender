@@ -1,0 +1,145 @@
+﻿@using BlazorApp1.Data;
+@using System.Linq;
+@using Blazored.Toast.Configuration
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject NatificationHubConn Natification
+@inject IToastService toastService
+
+
+<div class="modal-background" style="display: @(IsChangeCamNameOpen ? "block" : "none")"></div>
+
+@if (IsChangeCamNameOpen)
+{
+    <div class="modal fade show d-block" style="animation: @(IsChangeCamNameClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        @*固定Modal 填滿畫面*@
+        <div class="modal-dialog modal-dialog-centered">
+            @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">更改鏡頭名稱</h5>
+                </div>
+                <div class="modal-body">
+                    選擇鏡頭 : 
+                        <select @bind="ChangeCamNameId">
+                            @*
+                            @foreach (string CameraId in CameraIds)
+                            {
+                                <option value=@CameraId>@CameraId</option>
+                            }
+                            *@
+                            @foreach (int i in Enumerable.Range(0, CamCount))
+                            {
+                                <option value=@CameraIds[i] >@CamNames[i]</option>
+                            }
+                        </select>
+                    <br>
+                    更改名稱 : <input type="text" class="modal-input" @bind="NewCameraName" />
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string ChangeCamNameId = string.Empty;
+    private string ChangeCamNameGKey = string.Empty;
+    private List<string> CameraIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+    private int CamCount = 0 ;
+    private string NewCameraName = "攝影機";
+
+    [Parameter]
+    public bool IsChangeCamNameOpen { get; set; }
+    public bool IsChangeCamNameClose { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<bool> setIsChangeCamNameOpen { get; set; }
+
+
+    private async Task CloseModal()
+    {
+        IsChangeCamNameClose = true;
+        await Task.Delay(700);
+        IsChangeCamNameClose = false;
+        IsChangeCamNameOpen = false;
+        await setIsChangeCamNameOpen.InvokeAsync(IsChangeCamNameOpen);
+        ChangeCamNameId = string.Empty;
+        NewCameraName = "攝影機";
+    }
+
+    private async Task SaveModal()
+    {
+        IsChangeCamNameClose = true;
+        await Task.Delay(700);
+        IsChangeCamNameClose = false;
+        await ReNameCam();
+        await CamId();
+        IsChangeCamNameOpen = false;
+        await setIsChangeCamNameOpen.InvokeAsync(IsChangeCamNameOpen);
+        ChangeCamNameId = string.Empty;
+        NewCameraName = "攝影機";
+    }
+
+
+    public async Task ReNameCam()
+    {
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+
+        if (ChangeCamNameId == string.Empty)
+            //await JSRuntime.InvokeVoidAsync("alert", "尚未選擇改名之鏡頭");
+            toastService.ShowSuccess("尚未選擇改名之鏡頭");
+
+        else if (NewCameraName == string.Empty)
+            //await JSRuntime.InvokeVoidAsync("alert", "尚未填寫新鏡頭名稱");
+            toastService.ShowSuccess("尚未填寫新鏡頭名稱");
+        else if (!Sql.UserCameraVerify(uid, ChangeCamNameId))
+            toastService.ShowSuccess("此鏡頭已遭刪除");
+        else
+        {
+            Sql.ReNameCamera(uid, ChangeCamNameId, NewCameraName);
+            int cam = Int32.Parse(ChangeCamNameId);
+            //await JSRuntime.InvokeVoidAsync("alert", "鏡頭改名成功");
+            toastService.ShowSuccess("鏡頭改名成功");
+            await Session.Set_Cam_Info(uid);
+        }
+        ChangeCamNameId = string.Empty;
+
+        toastService.ClearQueueSuccessToasts();
+    }
+
+    //拿到所有擁有相機的id
+    public async Task CamId()
+    {
+        CameraIds = await Session.GetCamId();
+        CamCount = CameraIds.Count;
+        await GetCamNames();
+    }
+
+    public async Task GetCamNames()
+    {
+        CamNames.Clear();
+        CamNames = new List<string>();
+        foreach(string Id in CameraIds)
+        {
+            string name = await Session.GetCamName(Id);
+            CamNames.Add(name);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await CamId();
+        }
+    }
+}
+

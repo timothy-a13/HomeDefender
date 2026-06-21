@@ -1,0 +1,126 @@
+﻿@using BlazorApp1.Data;
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject EventManager Events
+@inject IToastService toastService
+
+<div class="modal-background" style="display: @(IsChangeRuleOpen ? "block" : "none")"></div>
+
+@if (IsChangeRuleOpen)
+{
+    <div class="modal d-block" style="animation: @(IsChangeRuleClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        @*固定Modal 填滿畫面*@
+        <div class="modal-dialog modal-dialog-centered">
+            @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">修改危險通知種類</h5>
+                </div>
+                <div class="modal-body">
+                    <p>行人軌跡:</p>
+                    <input type="checkbox" @bind="WaitIsChecked" />駐足
+                    <input type="checkbox" @bind="WanderIsChecked" />徘徊
+                    <br>
+                    <p>武器:</p>
+                    <input type="checkbox" @bind="BatIsChecked" />棍棒
+                    <input type="checkbox" @bind="KnifeIsChecked" />刀
+                    <input type="checkbox" @bind="GunsChecked" />槍
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+     
+    </div>
+}
+
+
+
+@code {
+    public bool WaitIsChecked = true;
+    public bool WanderIsChecked = true;
+    public bool BatIsChecked = true;
+    public bool KnifeIsChecked = true;
+    public bool GunsChecked = true;
+
+
+
+    [Parameter]
+    public bool IsChangeRuleOpen { get; set; }
+    public bool IsChangeRuleClose { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> setisChangeRule { get; set; }
+
+
+    private async Task CloseModal()
+    {
+
+        IsChangeRuleClose = true;
+        await Task.Delay(700);
+        IsChangeRuleClose = false;
+        IsChangeRuleOpen = false;
+        await setisChangeRule.InvokeAsync(IsChangeRuleOpen);
+        WaitIsChecked = true;
+        WanderIsChecked = true;
+        BatIsChecked = true;
+        KnifeIsChecked = true;
+        GunsChecked = true;
+
+    }
+
+    private async Task SaveModal()
+    {
+        IsChangeRuleClose = true;
+        await Change_Rule();
+        await Task.Delay(700);
+        IsChangeRuleClose = false;
+        IsChangeRuleOpen = false;
+        await setisChangeRule.InvokeAsync(IsChangeRuleOpen);
+        WaitIsChecked = true;
+        WanderIsChecked = true;
+        BatIsChecked = true;
+        KnifeIsChecked = true;
+        GunsChecked = true;
+    }
+
+    private Dictionary<string,bool> GenerateRuleList()
+    {
+        Dictionary<string, bool>  RuleDict = new Dictionary<string, bool>();
+        RuleDict.Add("wait",WaitIsChecked);
+        RuleDict.Add("wander",WanderIsChecked);
+        RuleDict.Add("bat", BatIsChecked);
+        RuleDict.Add("knife", KnifeIsChecked);
+        RuleDict.Add("gun", GunsChecked);
+        /*
+        RuleDict.Add("wait", Convert.ToInt32(WaitIsChecked));
+        RuleDict.Add("wander", Convert.ToInt32(WanderIsChecked));
+        RuleDict.Add("bat", Convert.ToInt32(BatIsChecked));
+        RuleDict.Add("knife", Convert.ToInt32(KnifeIsChecked));
+        RuleDict.Add("gun", Convert.ToInt32(GunsChecked)); 
+        foreach (var kvp in RuleDict)
+            {
+            string key = kvp.Key;
+            int value = kvp.Value;
+            Console.WriteLine($"Key: {key}, Value: {value}");
+        }*/
+        return RuleDict;
+
+    }
+
+    public async Task Change_Rule()
+    {
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+        string email = (await Session.GetElement<string>("email")).Value!;
+        Dictionary<string, bool> NewRule = GenerateRuleList();
+        Sql.ReRule(uid, NewRule);
+        toastService.ShowSuccess("修改成功");
+        await Session.Set_User_Info(email);
+        toastService.ClearQueueSuccessToasts();
+    }
+
+}

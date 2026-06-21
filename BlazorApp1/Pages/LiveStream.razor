@@ -1,0 +1,257 @@
+﻿@page "/LiveStream"
+@inject IJSRuntime JSRuntime
+@using BlazorApp1.Components
+@using BlazorApp1.Data
+@using System.Collections.Generic
+@using Microsoft.JSInterop
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject IniHandler Handler
+@inject PythonManager Python
+
+@if (CameraNum != 0 )
+{
+    <h3>即時串流 </h3>
+    
+    
+        @if (Sql.CheckisConn(Select_Camera)){
+            <div class="custom-player">
+                <FlvPlayer @key="CameraUrl" SrcUrl=@CameraUrl Class="" Muted Autoplay Controls/>
+            </div>
+        }
+        else
+        {
+            <div class="videoError-centered-content">
+                <button class="ReRun-btn" @onclick="ReRun"></button>
+            </div>
+        }
+    
+    @if (CameraNum > 0 && CONN)
+    {
+        <button class="Record-btn" @onclick="Record">
+            <div class="button_content">
+                @if (_isRecording)
+                {
+                    <p>結束錄製</p>
+                }
+                else
+                {
+                    <p>開始錄製</p>
+                }
+            </div>
+        </button>
+    }
+
+
+    <div class="button_box">
+        <div class="slider">
+            @*下面這行的0~2改成0~擁有的相機總數*@
+            @foreach (int cam_index in Enumerable.Range(0, CameraNum))
+            {
+                <button class="btn" @onclick="() => SelectCamera(Camera[cam_index])">
+                    <div class="button_content">
+                        <p>@CamNames[cam_index]</p>
+                    </div>
+                </button>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <h3>即時串流</h3>
+    <div class="centered-text">
+        @if (CameraNum == 0)
+        {
+            <div class="centered-content">
+            <button class="btn" @onclick="goSetting">未擁有鏡頭 點我移置設定 </button>
+            </div>
+        }
+    </div>
+}
+
+
+
+@code {
+    //CONN是指擁有的相機中有任何一個是連接的那就會是 真 ;
+    public bool CONN = false;
+
+    public string CameraUrl = string.Empty;
+    public string Select_Camera = string.Empty;
+    private int CameraNum = 0;
+
+    private List<string> CamIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+
+    private string[] Camera = new string[] { };
+
+    private bool _isRecording = false;
+    private DateTime _startRecordingTime;
+    private string _key = string.Empty;
+    private object _folderLock = new();
+    private int _curCamId;
+
+
+    public async Task SelectCamera(string CamId)
+    {
+        string FlvHost = Handler["ADDRESS"]["FlvHost"];
+        Select_Camera = CamId;
+        string GKey = await Session.GetG_Key(CamId);
+        CameraUrl = FlvHost + GKey + ".flv";
+        _curCamId = Convert.ToInt32(CamId);
+        _key = GKey;
+    }
+
+    public async Task CamId()
+    {
+        CamIds = await Session.GetCamId();
+        await GetCamNames();
+        CameraNum = CamIds.Count();
+        if (CamIds != null)
+        {
+            int index = 0;
+            Camera = new string[CameraNum];
+            foreach (string id in CamIds)
+            {
+                Camera[index] = id;
+                if (!CONN) CONN = Sql.CheckisConn(id);
+                Console.WriteLine(CONN);
+                index++;
+            }
+        }
+        if (CameraNum > 0)
+        {
+            await SelectCamera(Camera[0]);
+        }
+    }
+
+    public async Task ReRun()
+    {
+        if (await Session.IsInitialized())
+        {
+            CamIds = await Session.GetCamId();
+            await GetCamNames();
+            CameraNum = CamIds.Count();
+            if (CamIds != null)
+            {
+                int index = 0;
+                Camera = new string[CameraNum];
+                foreach (string id in CamIds)
+                {
+                    Camera[index] = id;
+                    if (!CONN) CONN = Sql.CheckisConn(id);
+                    Console.WriteLine(CONN);
+                    index++;
+                }
+            }
+            if (CameraNum > 0)
+            {
+
+                await SelectCamera(_curCamId.ToString());
+            }
+        }
+    }
+
+    public void goSetting()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+    public async Task GetCamNames()
+    {
+        List<string> tmp = new();
+        foreach (string Id in CamIds)
+        {
+            string name = await Session.GetCamName(Id);
+            tmp.Add(name);
+        }
+        CamNames = tmp;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Record()
+    {
+        if (!_isRecording)
+        {
+            _startRecordingTime = DateTime.Now - TimeSpan.FromSeconds(1);
+            _isRecording = !_isRecording;
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            DateTime startRecordingTime = _startRecordingTime;
+            DateTime endRecodingTime = DateTime.Now;
+            bool isFirstFragment = true;
+            string videoPath = Path.Combine(AppEnvironment.VideoStorageRoot, _key);
+            string timeFormat = "yyyy-MM-dd-HH-mm-ss";
+
+            _isRecording = !_isRecording;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Run(() =>
+            {
+                int fileNotExistCount = 0;
+                List<string> tsFileList = new();
+                while (startRecordingTime < endRecodingTime || tsFileList.Count == 0 && fileNotExistCount < 7)
+                {
+                    TimeSpan timeDiff = startRecordingTime - (DateTime.Now - TimeSpan.FromSeconds(5));
+                    if (timeDiff > TimeSpan.Zero) Thread.Sleep(timeDiff);
+                    string time = startRecordingTime.ToString(timeFormat);
+                    string tsFileName = $"{time}.ts";
+                    if (File.Exists($"{videoPath}\\{tsFileName}"))
+                    {
+                        if (!isFirstFragment ||
+                            isFirstFragment && Python.IsPlayable($"{videoPath}\\{tsFileName}"))
+                        {
+                            tsFileList.Add(tsFileName);
+                            isFirstFragment = false;
+                        }
+                        fileNotExistCount = 0;
+                    }
+                    else fileNotExistCount++;
+                    startRecordingTime += TimeSpan.FromSeconds(1);
+                }
+                if (tsFileList.Count == 0) return;
+                string firstFile = tsFileList.First().Split('.').First();   // Doesn't contain suffix
+                string lastFile = tsFileList.Last().Split('.').First();     // Doesn't contain suffix
+                string recordFolderName = $"{videoPath}\\record\\{firstFile}~{lastFile}";
+                lock (_folderLock)
+                {
+                    if (!Directory.Exists(recordFolderName))
+                        Directory.CreateDirectory(recordFolderName);
+                    else return;
+                }
+                using (StreamWriter m3u8File = new($"{recordFolderName}\\index.m3u8"))
+                {
+                    m3u8File.WriteLine(string.Join(Environment.NewLine, new List<string>()
+                    {
+                        "#EXTM3U",
+                        "#EXT-X-VERSION:3",
+                        "#EXT-X-PLAYLIST-TYPE:VOD",
+                        "#EXT-X-TARGETDURATION:3",
+                        "#EXT-X-MEDIA-SEQUENCE:0",
+                    }));
+                    foreach (string tsFile in tsFileList)
+                    {
+                        File.Copy($"{videoPath}\\{tsFile}", $"{recordFolderName}\\{tsFile}");
+                        m3u8File.WriteLine("#EXTINF:2.000000,");
+                        m3u8File.WriteLine(tsFile);
+                    }
+                    m3u8File.WriteLine("#EXT-X-ENDLIST");
+                    m3u8File.Flush();
+                }
+                Sql.AddRecord(_curCamId, $"{firstFile}~{lastFile}");
+                _ = Session.AddRecord(_curCamId.ToString(), $"{firstFile}~{lastFile}");
+            });
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await CamId();
+        }
+    }
+}

@@ -1,0 +1,139 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@using BlazorApp1.Data
+@using BlazorApp1.Pages
+@using Blazored.Toast.Configuration
+@using System.Text.Json.Nodes
+@using System.Timers
+
+@inject SessionManager Session
+@inject SemaphoreManager Semaphores
+@inject NatificationHubConn Natification
+@inject IToastService Toast
+
+<PageTitle>居家安全監控</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+		<article class="content px-4">
+			@Body
+		</article>
+    </main>
+</div>
+
+<BlazoredToasts Position="ToastPosition.TopCenter"
+                Timeout="5"
+                ShowProgressBar="true"
+                ShowCloseButton="false"
+                IconType="IconType.Blazored"
+                MaxToastCount="1" />
+
+@code {
+    private float _curNatificationScore = 0;
+    private Timer _natificationTimer = new();
+    private object _timerLock = new();
+    private string[] _stateMap = { "pass", "wait", "wander" };
+    private string[] _weaponMap = { "bat", "knife", "gun" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            List<int> camIds = (await Session.GetCamId()).Select(id => int.Parse(id)).ToList();
+            await Natification.InitializeAsync(camIds);
+            Natification.OnCommandChanged += OnCommandChanged;
+            Semaphores.NewSemaphore("ChangedState", 0, 1);
+
+            _natificationTimer.Interval = 25000;
+            _natificationTimer.AutoReset = false;
+            _natificationTimer.Elapsed += OnNatificationClose;
+        }
+    }
+
+    private async void OnCommandChanged(object? sender, CommandEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.Command) || string.IsNullOrEmpty(e.Message))
+            return;
+
+        string command = e.Command;
+        JsonNode info = JsonNode.Parse(e.Message)!;
+
+        switch (command)
+        {
+            case "sto":
+                int uid = (await Session.GetElement<int>("uid")).Value;
+                await Session.Set_Cam_Info(uid);
+                var semaphore = Semaphores["ChangedState"];
+                Console.WriteLine("At m razor: {0}", semaphore?.CurrentCount);
+                if (semaphore is not null && semaphore.CurrentCount == 0)
+                    semaphore.Release();
+                break;
+
+            case "dan":
+                try
+                {
+                    int camId = info["cam_id"]!.GetValue<int>();
+                    string state = _stateMap[info["state"]!.GetValue<int>()];
+                    float score = info["score"]!.GetValue<float>();
+                    float[] weaponConf = {
+                        info["bat"]!.GetValue<float>(),
+                        info["knife"]!.GetValue<float>(),
+                        info["gun"]!.GetValue<float>() };
+
+                    string text = $" CameraId {camId}  偵測到了 {state} 行為 ";
+                    List<string> notificateObjects = new() { state };
+                    for (int i = 0; i < weaponConf.Length; i++)
+                        if (weaponConf[i] > 0)
+                        {
+                            notificateObjects.Add(_weaponMap[i]);
+                            text += $"偵測到 {_weaponMap[i]} 機率為 {weaponConf[i]}";
+                        }
+                    text += $" 危險程度為 {score}";
+
+                    bool displayRuleMode = (await Session.GetElement<bool>("mode")).Value;
+                    if (displayRuleMode && IsCovered(await Session.GetRule(), notificateObjects) && _curNatificationScore < score ||   // 用選項判斷
+                       !displayRuleMode && (await Session.GetElement<int>("score")).Value! < score && _curNatificationScore < score)   // 用分數判斷
+                    {
+                        _curNatificationScore = score;
+                        lock (_timerLock) _natificationTimer.Stop();
+                        Toast.ClearAll();
+                        Toast.ShowWarning(text, option => { option.Timeout = 25; option.OnClick = OnNatificationClose; });
+                        lock (_timerLock) _natificationTimer.Start();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
+                break;
+
+            default: break;
+        }
+    }
+
+    private void OnNatificationClose()
+    {
+        lock (_timerLock) _natificationTimer.Stop();
+        _curNatificationScore = 0;
+        Toast.ClearAll();
+    }
+
+    private void OnNatificationClose(object? sender, ElapsedEventArgs e) => OnNatificationClose();
+
+    private bool IsCovered(List<string> enabledOptions, List<string> notificateObjects)
+    {
+        foreach (var obj in notificateObjects)
+            if (enabledOptions.Contains(obj))
+                return true;
+        return false;
+    }
+
+    public void Dispose()
+    {
+        Natification.OnCommandChanged -= OnCommandChanged;
+    }
+}

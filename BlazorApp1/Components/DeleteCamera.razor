@@ -1,0 +1,142 @@
+﻿@using BlazorApp1.Data;
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject NatificationHubConn Natification
+@inject IToastService toastService
+
+<div class="modal-background" style="display: @(IsDeleteCameraOpen ? "block" : "none")"></div>
+
+@if (IsDeleteCameraOpen)
+{
+    <div class="modal d-block" style="animation: @(IsDeleteCameraClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        @*固定Modal 填滿畫面*@
+        <div class="modal-dialog modal-dialog-centered">
+            @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">刪除鏡頭</h5>
+                </div>
+                <div class="modal-body">
+                    <select @bind="DeleteCameraId">
+                        @*
+                        @foreach(string CameraId in CameraIds){
+                            <option value=@CameraId>@CameraId</option>
+                        }
+                        *@
+
+                        @foreach (int i in Enumerable.Range(0, CamCount))
+                        {
+                            <option value=@CameraIds[i] >@CamNames[i]</option>
+                        }
+                    </select>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string DeleteCameraId = string.Empty;
+    private string DeleteCameraGKey = string.Empty;
+    private List<string> CameraIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+    private int CamCount = 0 ;
+
+    [Parameter]
+    public bool IsDeleteCameraOpen { get; set; }
+    public bool IsDeleteCameraClose { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<bool> setIsDeleteCameraOpen { get; set; }
+
+    private async Task CloseModal()
+    {
+        IsDeleteCameraClose = true;
+        await Task.Delay(700);
+        IsDeleteCameraClose = false;
+        IsDeleteCameraOpen = false;
+        await setIsDeleteCameraOpen.InvokeAsync(IsDeleteCameraOpen);
+        DeleteCameraId = string.Empty;
+    }
+
+    private async Task SaveModal()
+    {
+        IsDeleteCameraClose = true;
+        await Task.Delay(700);
+        IsDeleteCameraClose = false;
+        await DelCam();
+        await CamId();
+        IsDeleteCameraOpen = false;
+        await setIsDeleteCameraOpen.InvokeAsync(IsDeleteCameraOpen);
+        DeleteCameraId = string.Empty;
+    }
+
+
+    public async Task DelCam()
+    {   
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+
+        if (DeleteCameraId == string.Empty)
+        {
+            toastService.ShowSuccess("尚未選擇刪除之鏡頭");
+            //await JSRuntime.InvokeVoidAsync("alert", "尚未選擇刪除之鏡頭");
+        }
+        else
+        {
+            DeleteCameraGKey = await Session.GetG_Key(DeleteCameraId);
+            {
+                if (Sql.DelCamera(uid, DeleteCameraId, DeleteCameraGKey))
+                {
+                    int cam = Int32.Parse(DeleteCameraId);
+                    await Natification.RemoveCamera(cam);
+                    toastService.ShowSuccess("刪除鏡頭成功");
+                    //await JSRuntime.InvokeVoidAsync("alert", "刪除鏡頭成功");
+                    await Session.Set_Cam_Info(uid);
+                }
+                else
+                {
+                    toastService.ShowSuccess("刪除鏡頭失敗");
+                    //await JSRuntime.InvokeVoidAsync("alert", "刪除鏡頭失敗");
+                }
+            }
+        }
+        toastService.ClearQueueSuccessToasts();
+    }
+
+    //拿到所有擁有相機的id
+    public async Task CamId()
+    {
+        CameraIds = await Session.GetCamId();
+        CamCount = CameraIds.Count;
+        await GetCamNames();
+    }
+
+    public async Task GetCamNames()
+    {
+        CamNames.Clear();
+        CamNames = new List<string>();
+        foreach(string Id in CameraIds)
+        {
+            string name = await Session.GetCamName(Id);
+            CamNames.Add(name);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+         if (await Session.IsInitialized())
+        {
+             await CamId();
+        }
+    }
+
+
+    
+}

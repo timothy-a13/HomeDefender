@@ -1,0 +1,39 @@
+﻿@using BlazorApp1.Data;
+
+	<canvas id="chart_@ID"></canvas>
+
+@code {
+	private object _amounts = new();
+
+	[Inject]
+	private IJSRuntime? JS { get; set; }
+	[Inject]
+	private SqlManager? Sql { get; set; }
+
+	public Guid ID = Guid.NewGuid();
+
+	[Parameter]
+	public int CamId { get; set; } = 10001;
+	[Parameter]
+	public string ChartType { get; set; } = "detailed";   // detailed outline
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			switch (ChartType)
+			{
+				case "outline":
+					_amounts = Sql!.GetAmount(CamId);
+					break;
+				case "detailed":
+					_amounts = Sql!.GetDetailAmount(CamId);
+					break;
+				default:
+					throw new InvalidOperationException("ChsrtType 請使用 detailed 或 outline");
+			}
+			await JS!.InvokeVoidAsync("load_chart", "chart_" + ID, _amounts, ChartType);
+		}
+	}
+	//IJSObjectReference? jsModule = await JS!.InvokeAsync<IJSObjectReference>("import", "./js/customChart.js");
+}

@@ -1,0 +1,30 @@
+﻿@page "/"
+
+@using BlazorApp1.Data
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+
+<h3>Loding</h3>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await islogin();
+        }
+    }
+
+    public async Task islogin()
+    {
+        var Nickname = await Session.GetElement<string>("nickname");
+        if (Nickname.Value != null)
+        {
+            navigationManager.NavigateTo("/UserUI", forceLoad: true);
+        }
+        else
+        {
+            navigationManager.NavigateTo("/LoginPage", forceLoad: true);
+        }
+    }
+}

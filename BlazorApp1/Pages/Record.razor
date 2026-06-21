@@ -1,0 +1,190 @@
+﻿@page "/Record"
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@using BlazorApp1.Components
+@using BlazorApp1.Data
+@using System.Collections.Generic
+@using Microsoft.JSInterop
+@inject SemaphoreManager Semaphores
+@inject IniHandler Handler
+@implements IDisposable
+
+<h3>錄製片段</h3>
+@if (CameraNum != 0)
+{
+    <div class="custom-player">
+        <HlsPlayer @key="CameraUrl" SrcUrl=@CameraUrl Class="" Muted Autoplay Controls />
+    </div>
+
+    <div class="button_box">
+        <div class="slider">
+            @foreach (int cam_index in Enumerable.Range(0, CameraNum))
+            {
+                <button class="btn" @onclick="() => ToggleBookmark(Camera[cam_index])">
+                    <div class="button_content">
+                        <p>@CamNames[cam_index]</p>
+                    </div>
+                </button>
+            }
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="@($"{(BookmarkExpanded ? "bookmark-content bookmark-expanded" : "bookmark-content")}")">
+        @if (BookmarkExpanded)
+        {
+            @* 要先知道選擇的相機是誰 *@
+            @* 找到那台相機中所有危險片段名稱 *@
+            @foreach (int fileIndex in Enumerable.Range(0, FileArray.Length))
+            {
+                <button class="btn bookmark_btn" @onclick="() => Select_URL(CurCameraId, FileArray[fileIndex])" @key="FileArray[fileIndex]">
+                    <p>@FileNameArray[fileIndex]</p>
+                </button>
+                <br>
+            }
+
+        }
+    </div>
+    @*<button class="btn btn-success" @onclick="SetVideo">測試1</button>;*@
+}
+else
+{
+    <div class="centered-content">
+        <button class="btn" @onclick="goSetting">未擁有鏡頭 點我移置設定 </button>
+    </div>
+}
+
+@code {
+    public string CameraUrl = string.Empty;
+    public string CurCameraId = string.Empty;
+    public int CameraNum = 0;
+    public List<string> CamIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+
+    public string[] Camera = new string[] { };
+    public string[][] File = new string[][] { };
+    public string[] FileArray = new string[] { };
+    public string[] FileNameArray = new string[] { };
+
+    public bool BookmarkExpanded = false;
+
+    public void goSetting()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+    public async Task ToggleBookmark(string select_cam_id)
+    {
+        if (CurCameraId == select_cam_id || BookmarkExpanded == false)
+        {
+            FileArray = new string[] { };
+            FileNameArray = new string[] { };
+            BookmarkExpanded = !BookmarkExpanded;
+        }
+        CurCameraId = select_cam_id;
+
+        List<string> DangerTime = await Session.GetRecord(CurCameraId);
+        int DangerTimNum = DangerTime.Count;
+        FileArray = new string[DangerTimNum];
+        FileNameArray = new string[DangerTimNum];
+        int Ind = 0;
+        foreach (string time in DangerTime)
+        {
+            FileArray[Ind] = time;
+            FileNameArray[Ind] = FileNameTran(time);
+            Ind++;
+        }
+    }
+
+    public string FileNameTran(string time)
+    {
+        string result = "[";
+        for (int i = 5; i <= 18; i++)
+        {
+            if (i == 7) result += " / ";
+            else if (i == 10) result += "]   ";
+            else if (i == 13 || i == 16 || i == 19) result += ":";
+            else result += time[i];
+        }
+
+        result += " ~ [";
+
+        for (int i = 25; i <= 38; i++)
+        {
+            if (i == 27) result += " / ";
+            else if (i == 30) result += "]   ";
+            else if (i == 33 || i == 36 || i == 39) result += ":";
+            else result += time[i];
+        }
+        return result;
+    }
+
+    public async Task Select_URL(string CamId, string file)
+    {
+        string HlsHost = Handler["ADDRESS"]["HlsHost"];
+        CurCameraId = CamId;
+        string GKey = await Session.GetG_Key(CamId);
+        CameraUrl = HlsHost + GKey + "/record/" + file + "/index.m3u8";
+    }
+
+    public async Task SetVideo()
+    {
+        CamIds = await Session.GetCamId();
+        await GetCamNames();
+        CameraNum = CamIds.Count();
+        Camera = new string[CameraNum];
+        File = new string[CameraNum][];
+        int i = 0;
+        foreach (string Id in CamIds)
+        {
+            Camera[i] = Id;
+            List<string> Times = await Session.GetRecord(Id);
+            int danger_num = Times.Count;
+            File[i] = new string[danger_num];
+            int j = 0;
+            foreach (string time in Times)
+            {
+                File[i][j] = time;
+                j++;
+            }
+            i++;
+            if (CurCameraId == Id)
+            {
+                FileArray = new string[danger_num];
+                int Ind = 0;
+                foreach (string time in Times)
+                {
+                    FileArray[Ind] = time;
+                    Ind++;
+                }
+            }
+        }
+    }
+
+    public async Task GetCamNames()
+    {
+        List<string> tmp = new();
+        foreach (string Id in CamIds)
+        {
+            string name = await Session.GetCamName(Id);
+            tmp.Add(name);
+        }
+        CamNames = tmp;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await SetVideo();
+        }
+    }
+
+    public void Dispose()
+    {
+        
+    }
+}

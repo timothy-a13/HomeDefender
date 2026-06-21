@@ -1,0 +1,77 @@
+﻿@page "/LoginPage"
+@using BlazorApp1.Data
+@using BlazorApp1.Components
+@inject IJSRuntime JSRuntime
+@inject Connection connection
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+@inject SqlManager Sql
+
+<PageTitle>Index</PageTitle>
+<div class="centered-content">
+<div class="input-box">
+<h1>Login</h1>
+
+<hr>
+帳號 :
+<input type="text" class="input" @bind="InputEmail" />
+<br>
+<br>
+密碼 :
+<input type="password" class="input" @bind="InputPassword" />
+<br>
+<br>
+
+<div class="login-right">
+<button class="btn" @onclick="OpenModal">註冊</button>
+<button class="btn" @onclick="Login">
+    登入 <span class="oi oi-account-login" aria-hidden="true"></span>
+</button>
+</div>
+
+</div>
+</div>
+<Register IsRegisterOpen="@IsRegisterOpen" SetIsRegisterOpen="@SetIsRegisterOpen" />
+
+@code {
+    public string InputEmail = string.Empty;
+    public string InputPassword = string.Empty;
+    public int Uid = 0;
+
+    public async Task Login()
+    {
+        
+        if (Sql.User_Verify(InputEmail, InputPassword))
+        {
+            await Session.Set_User_Info(InputEmail);
+            //await JSRuntime.InvokeVoidAsync("alert", "登入成功");
+            navigationManager.NavigateTo("/UserUI", forceLoad: true);
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "帳號或密碼有誤");
+        }
+    }
+
+    /*
+    public async Task Login()
+        {
+        connection.Login(input_email, input_password);
+        JsonNode? node = null;
+        if (await Session.IsLogin())
+            {
+            string? email = Session["email"] as string;
+    }
+    }*/
+
+    private bool IsRegisterOpen = false;
+
+    private void OpenModal()
+    {
+        IsRegisterOpen = true;
+    }
+    private void SetIsRegisterOpen(bool value)
+    {
+        IsRegisterOpen = value;
+    }
+}

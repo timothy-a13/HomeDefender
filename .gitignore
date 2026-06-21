@@ -1,0 +1,92 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET build and publish output
+**/bin/
+**/obj/
+**/publish/
+artifacts/
+TestResults/
+.verify/
+.dotnet-home/
+*.nupkg
+*.snupkg
+
+# Python caches and environments
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+BlazorApp1/config.ini
+BlazorApp1/appsettings.Development.json
+BlazorApp1/appsettings.Local.json
+RaspberryPiC/RaspberryPiC/config.txt
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+secrets.json
+
+# Logs and runtime state
+*.log
+ConnectionId.txt
+ConnectionId.log
+log_file.log
+live/
+
+# Databases
+*.mdf
+*.ldf
+*.db
+*.sqlite
+*.sqlite3
+
+# AI experiment output and caches
+Core/runs/
+Core/test_track/
+Core/EE/
+Core/EE24fps/
+Core/monitor/
+Core/video/
+Core/datas/vedios/
+Core/test.ipynb
+Core/test.py
+Core/clr_test.py
+Core/bytetrack.yaml
+
+# Duplicate or locally downloaded model weights
+Core/*.pt
+Core/weights/yolov8x.pt
+
+# Screenshots containing original test account or camera data
+assets/result2.png
+assets/result3.png
+assets/result4.png
+
+# Raspberry Pi / Visual Studio Linux build output
+RaspberryPiC/**/*.out
+RaspberryPiC/**/LastRemoteTarget.tlog
+RaspberryPiC/**/iconfig.json

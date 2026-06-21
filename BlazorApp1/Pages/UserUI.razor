@@ -1,0 +1,482 @@
+﻿@page "/UserUI"
+@using BlazorApp1.Data
+@using BlazorApp1.Components
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+@inject SqlManager Sql
+
+<br>
+<h1>用戶設定</h1>
+<hr />
+
+<br>
+<div class ="UI-text" @onclick="UserDataClick">
+    <span class="oi oi-document" aria-hidden="true" />   基本資料 <span class="@($"{(isUserData ? "oi oi-caret-bottom" : "oi oi-caret-top")}")" aria-hidden="true" />
+    <br>
+</div>
+@if (@isUserData)
+{
+
+    <br>
+    <div class="info_box">
+        <div class='parent'>
+            <div class="left">
+                <div>
+                    <span>名稱 :&nbsp</span>
+                </div>
+                <div>
+                    <span>性別 :&nbsp</span>
+                </div>
+                <div>
+                    <span>Email :&nbsp</span>
+                </div>
+            </div>
+            <div class="right">
+                <div>
+                    <span>@Name</span>
+                </div>
+                <div>
+                    <span>@gender</span>
+                </div>
+                <div>
+                    <span>@Email</span>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+    <div class="info_box">
+    @if (!Mode)
+
+    {
+
+            <div class='parent'>
+                <div class="left">
+                    <div>
+                        <span>通知模式 :&nbsp</span>
+                    </div>
+                    <div>
+                        <span>危險分數 :&nbsp</span>
+                    </div>
+
+                </div>
+                <div class="right">
+                    <div>
+                        <span>分數</span>
+                    </div>
+                    <div>
+                        <span>@Score</span>
+                    </div>
+
+                </div>
+            </div>
+
+    }
+    @if (Mode)
+    {
+            <div class='parent'>
+                <div class="left">
+                    <div>
+                        <span>通知模式 :&nbsp</span>
+                    </div>
+                    <div>
+                        <span>危險種類 :&nbsp</span>
+                    </div>
+
+                </div>
+                <div class="right">
+                    <div>
+                        <span>種類</span>
+                    </div>
+                    <div>
+                        @foreach (string rule in UserRules)
+                        {
+                            <span>@rule &nbsp</span>
+                        }
+                    </div>
+
+                </div>
+            </div>
+
+    }
+    </div>
+}
+
+<hr/>@*分界線*@
+<br>
+<div class="UI-text" @onclick="CameraDataClick">
+    <span class="oi oi-monitor" aria-hidden="true" />   鏡頭資訊 <span class="@($"{(isCameraData ? "oi oi-caret-bottom" : "oi oi-caret-top")}")" aria-hidden="true" />
+</div>
+@if (@isCameraData)
+{
+    <br>
+    <p>鏡頭數量 : <span>@CamCount</span></p>
+    <div class="select">
+    <select @bind="CameraId" @oninput="UpdateCamInfo">
+        <option value="">選擇鏡頭</option>
+        @*
+    @foreach (string CameraId in CamIds!)
+    {
+    <option value=@CameraId>@CameraId</option>
+    }
+    *@
+        @foreach (int i in Enumerable.Range(0, CamCount))
+        {
+            <option value=@CamIds[i]>@CamNames[i]</option>
+        }
+    </select>
+    </div>
+    <br>
+
+    <div class="info_box">
+        <div class='parent'>
+            <div class="left">
+                <div>
+                    <span>鏡頭ID :&nbsp</span>
+                </div>
+                <div>
+                    <span>鏡頭名稱 :&nbsp</span>
+                </div>
+                <div>
+                    <span>鏡頭連線 :&nbsp</span>
+                </div>
+                <div>
+                    <span>鏡頭金鑰 :&nbsp</span>
+                </div>
+            </div>
+            <div class="right">
+                <div>
+                    <span>@CameraId</span>
+                </div>
+                <div>
+                    <span>@cam_name</span>
+                </div>
+                <div>
+                    <span>@is_conn</span>
+                </div>
+                <div>
+                    <span>@GKey</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="info_box">
+        <p>危險片段 : </p>
+        @foreach (string time in DangerTimes)
+        {
+            <p>&nbsp @FileNameTran(@time)</p>
+        }
+    </div>
+
+    <div class="info_box">
+        <p>共用者 : </p>
+        @foreach (string user in OtherUsers)
+        {
+            <p>&nbsp @user</p>
+        }
+    </div>
+    <br>
+}
+
+
+<hr />
+<br>
+<div class="UI-text" @onclick="UserSetClick">
+    <span class="oi oi-cog" aria-hidden="true" /> 更改設定 <span class="@($"{(isUserSet ? "oi oi-caret-bottom" : "oi oi-caret-top")}")" aria-hidden="true" />
+    <br>
+</div>
+@if (@isUserSet)
+{
+    <div class="info_box">
+        
+        <button class="UserUI-btn" @onclick="()=> isChangeScore = true">危險分數通知模式</button>
+        <ChangeScore IsChangeScoreOpen="@isChangeScore" setisChangeScore="@SetisChangeScore" />
+
+        <button class="UserUI-btn" @onclick="()=> isChangeRule = true">危險種類通知模式</button>
+        <ChangeRule IsChangeRuleOpen="@isChangeRule" setisChangeRule="@SetisChangeRule" />
+
+        <button class="UserUI-btn" @onclick="()=> isRename = true">修改用戶名稱</button>
+        <ReName IsRenameOpen="@isRename" setisRename="@SetisRename" />
+
+        <button class="UserUI-btn" @onclick="()=> isChangeCamNameOpen = true">修改鏡頭名稱</button>
+        <ChangeCamName IsChangeCamNameOpen="@isChangeCamNameOpen" setIsChangeCamNameOpen="@SetIsChangeCamNameOpen" />
+
+        <button class="UserUI-btn" @onclick="()=> isAddCameraOpen = true">新增鏡頭</button>
+        <AddCamera IsAddCameraOpen="@isAddCameraOpen" setIsAddCameraOpen="@SetIsAddCameraOpen" />
+
+        <button class="UserUI-btn" @onclick="()=> isDeleteCameraOpen = true">刪除鏡頭</button>
+        <DeleteCamera IsDeleteCameraOpen="@isDeleteCameraOpen" setIsDeleteCameraOpen="@SetIsDeleteCameraOpen" />
+
+        <button class="UserUI-btn" @onclick="()=> isChangePassword = true">修改密碼</button>
+        <ChangePassword IsChangePasswordOpen="@isChangePassword" setisChangePassword="@SetisChangePassword" />
+
+    </div>
+    
+    <br>
+    <br>
+}
+<hr/>
+<br>
+<br>
+<button class="btn" @onclick="Logout">
+    登出 <span class="oi oi-account-logout" aria-hidden="true"></span>
+</button>
+<br>
+<br>
+<br>
+<br>
+
+@code {
+
+    //UserInfo Start
+
+    //public Userinfo User = new Userinfo();
+    private string Uid = string.Empty;
+    private string UserId = string.Empty;
+    private string Name = string.Empty;
+    private string Email = string.Empty;
+    private string gender = string.Empty;
+    private string Score = string.Empty;
+    private bool Mode;
+    private List<string> UserRules = new List<string>();
+
+    //string IndexString = "";
+
+    private bool isUserData = false;
+    private bool isCameraData = false;
+    private bool isUserSet = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await User_Info();
+            await CamId();
+        }
+
+    }
+
+    public async Task User_Info()
+    {
+        Uid = (await Session.GetElement<int>("uid")).Value.ToString();
+        //Console.WriteLine((await Session.GetElement<int>("uid")).Value);
+        Score = (await Session.GetElement<int>("score")).Value.ToString();
+        UserId = (await Session.GetElement<string>("user_id")).Value!;
+        Name = (await Session.GetElement<string>("nickname")).Value!;
+        Email = (await Session.GetElement<string>("email")).Value!;
+        Score = (await Session.GetElement<int>("score")).Value.ToString();
+        Mode = (await Session.GetElement <bool>("mode")).Value!;
+        Console.WriteLine("Mode");
+        Console.WriteLine(Mode);
+        if ((await Session.GetElement<string>("gender")).Value == "0") gender = "女性";
+        else gender = "男性";
+        Shares();
+        UserRules = await Session.GetRule();
+    }
+
+    private bool isRename = false;
+
+    private async Task SetisRename(bool value)
+    {
+        isRename = value;
+        await User_Info();
+    }
+
+    private bool isChangeScore = false;
+
+    private async Task SetisChangeScore(bool value)
+    {
+        isChangeScore = value;
+        await User_Info();
+    }
+
+    private bool isChangeRule = false;
+
+    private async Task SetisChangeRule(bool value)
+    {
+        isChangeRule = value;
+        await User_Info();
+    }
+
+    private async Task UpdateCamId(ChangeEventArgs e)
+    {
+        await User_Info();
+    }
+
+    private bool isChangePassword = false;
+
+    private void SetisChangePassword(bool value)
+    {
+        isChangePassword = value;
+    }
+
+    //UserInfo End
+
+
+    //CameraInfo Start
+
+    private string CameraId = string.Empty;
+    private string GKey = string.Empty;
+    private string is_conn = string.Empty;
+    private string cam_name = string.Empty;
+
+    private List<string> CamIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+
+    private int CamCount = 0;
+    private List<string> DangerTimes = new List<string>();
+    private List<string> OtherUsers = new List<string>();
+    private JsonNode CamJson = new JsonObject() { };
+
+    public async Task CamId()
+    {
+        //回傳list<string>
+        CamIds = await Session.GetCamId();
+        await GetCamNames();
+        CamCount = CamIds.Count;
+    }
+
+    public async Task GetCamNames()
+    {
+        CamNames.Clear();
+        CamNames = new List<string>();
+        foreach (string Id in CamIds)
+        {
+            string name = await Session.GetCamName(Id);
+            CamNames.Add(name);
+        }
+    }
+
+    private async Task UpdateUserData()
+    {
+        await CamId();
+        await G_Key();
+        await IsConn();
+        await Danger();
+        await CamName();
+        Shares();
+    }
+
+    public async Task CamName()
+    {
+        // return string
+        if (CameraId != string.Empty) cam_name = await Session.GetCamName(CameraId);
+        else cam_name = string.Empty;
+
+    }
+
+    public async Task G_Key()
+    {
+        // return string
+        if (CameraId != string.Empty) GKey = await Session.GetG_Key(CameraId);
+        else GKey = string.Empty;
+    }
+
+    public async Task IsConn()
+    {
+        if (CameraId != string.Empty) is_conn = await Session.GetConn(CameraId);
+        else is_conn = string.Empty;
+    }
+
+    public async Task Danger()
+    {
+        //回傳list<string>
+        if (CameraId != string.Empty) DangerTimes = await Session.GetDanger(CameraId);
+        else DangerTimes = new List<string>();
+    }
+
+    public void Shares()
+    {
+        //回傳list<string>
+        if (CameraId != string.Empty) OtherUsers = Sql.GetShares(CameraId);
+        else OtherUsers = new List<string>();
+    }
+
+    private bool isAddCameraOpen = false;
+
+    private async Task SetIsAddCameraOpen(bool value)
+    {
+        isAddCameraOpen = value;
+        await UpdateUserData();
+    }
+
+    private bool isDeleteCameraOpen = false;
+
+    private async Task SetIsDeleteCameraOpen(bool value)
+    {
+        CameraId = string.Empty;
+        isDeleteCameraOpen = value;
+        await UpdateUserData();
+    }
+
+    private bool isChangeCamNameOpen = false;
+
+    private async Task SetIsChangeCamNameOpen(bool value)
+    {
+        isChangeCamNameOpen = value;
+        await UpdateUserData();
+    }
+
+    private async Task UpdateCamInfo(ChangeEventArgs e)
+    {
+        CameraId = e.Value!.ToString()!;
+        await G_Key();
+        await IsConn();
+        await Danger();
+        await CamName();
+        Shares();
+    }
+
+    //CameraInfo End
+
+    private void UserDataClick()
+    {
+        if (isUserData) isUserData = false;
+        else isUserData = true;
+    }
+
+    private void CameraDataClick()
+    {
+        if (isCameraData) isCameraData = false;
+        else isCameraData = true;
+
+    }
+
+    private void UserSetClick()
+    {
+        if (isUserSet) isUserSet = false;
+        else isUserSet = true;
+    }
+
+
+    public async Task Logout()
+    {
+        await Session.Clear();
+        navigationManager.NavigateTo("/", forceLoad: true);
+    }
+
+    public string FileNameTran(string time)
+    {
+        string result = "[";
+        for (int i = 5; i <= 18; i++)
+        {
+            if (i == 7) result += " / ";
+            else if (i == 10) result += "]   ";
+            else if (i == 13 || i == 16 || i == 19) result += ":";
+            else result += time[i];
+        }
+
+        result += " ~ [";
+
+        for (int i = 25; i <= 38; i++)
+        {
+            if (i == 27) result += " / ";
+            else if (i == 30) result += "]   ";
+            else if (i == 33 || i == 36 || i == 39) result += ":";
+            else result += time[i];
+        }
+        return result;
+    }
+
+}

@@ -1,0 +1,83 @@
+﻿@page "/ChartPage"
+@using BlazorApp1.Components
+@using BlazorApp1.Data
+@inject NavigationManager Navigation
+@inject SessionManager Session
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+
+<h3>圖表</h3>
+
+@if (_cameraIds.Count() > 0)
+{
+    <div>
+        <input type="radio" id="outline" name="ChartType" value=0 checked @onclick="ChangeChartTypeTo0" />
+        <label for="outline">可疑人物統計圖</label>
+        <input type="radio" id="detailed" name="ChartType" value=1 @onclick="ChangeChartTypeTo1" />
+        <label for="detailed">詳細統計圖</label>
+    </div>
+
+    <div class="custom-chart">
+        @{
+            int key = _curCameraId << 1 | _curChartType;
+            <Chart @key=key CamId=@_curCameraId ChartType=@_chartTypeName[_curChartType] />
+        }
+    </div>
+
+    <div class="button_box">
+        <div class="slider">
+            @foreach ((int id, string name) in _cameraIds.Zip(_cameraNames))
+            {
+                <button class="btn" @onclick="() => _curCameraId = id">
+                    <div class="button_content">
+                        <p>@name</p>
+                    </div>
+                </button>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="centered-content">
+        <button class="btn" @onclick="goSetting">未擁有鏡頭 點我移置設定 </button>
+    </div>
+}
+
+@code {
+    private int _curCameraId;
+    private IEnumerable<int> _cameraIds = new List<int>();
+    private List<string> _cameraNames = new();
+    private int _curChartType = 0;   // 0. outline   1. detailed
+    private string[] _chartTypeName = { "outline", "detailed" };
+    private string[] _chartTypeButton = { "可疑人物統計圖", "詳細統計圖" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Session.IsInitialized()) return;
+
+        _cameraIds = (await Session.GetCamId()).Select(camId => Convert.ToInt32(camId));
+        foreach (int id in _cameraIds)
+            _cameraNames.Add(await Session.GetCamName(id.ToString()));
+        if (_cameraIds.Count() > 0)
+            _curCameraId = _cameraIds.First();
+    }
+
+    public void goSetting()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+    private void ChangeChartTypeTo0()
+    {
+        _curChartType = 0;
+    }
+    private void ChangeChartTypeTo1()
+    {
+        _curChartType = 1;
+    }
+
+    public void ReRun()
+    {
+        Navigation.NavigateTo("/ChartPage");
+    }
+}

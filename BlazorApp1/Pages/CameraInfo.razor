@@ -1,0 +1,191 @@
+﻿@page "/CameraInfo"
+@using BlazorApp1.Data
+@using BlazorApp1.Components
+@using System.Linq;
+
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+@inject SqlManager Sql
+
+<button class="btn btn-success" @onclick="Back">返回</button>
+<br>
+<h2>鏡頭資訊</h2>
+<p>鏡頭數量 : <span>@CamCount</span></p>
+<select @bind="CameraId" @oninput="UpdateCamId">
+    <option value="">選擇鏡頭</option>
+    @*
+    @foreach (string CameraId in CamIds!)
+    {
+        <option value=@CameraId>@CameraId</option>
+    }
+    *@
+    @foreach (int i in Enumerable.Range(0, CamCount))
+    {
+        <option value=@CamIds[i]>@CamNames[i]</option>
+    }
+
+</select>
+<br>
+<br>
+<p>鏡頭名稱 : <span>@cam_name</span></p>
+<p>鏡頭ID : <span>@CameraId</span></p>
+<p>金鑰 : <span>@GKey</span></p>
+<p>連線狀況 : <span>@is_conn</span></p>
+
+<div class="info_box">
+<p>危險片段 : </p>
+@foreach (string time in DangerTimes)
+{
+    <p>@time</p>
+}
+</div>
+
+<div class="info_box">
+<p>共用者 : </p>
+@foreach (string user in OtherUsers)
+{
+    <p>@user</p>
+}
+</div>
+
+<button class="btn btn-success" @onclick="()=> isAddCameraOpen = true">新增鏡頭</button>
+<AddCamera IsAddCameraOpen="@isAddCameraOpen" setIsAddCameraOpen="@SetIsAddCameraOpen" />
+<br>
+<button class="btn btn-success" @onclick="()=> isDeleteCameraOpen = true">刪除鏡頭</button>
+<DeleteCamera IsDeleteCameraOpen="@isDeleteCameraOpen" setIsDeleteCameraOpen="@SetIsDeleteCameraOpen" />
+
+<button class="btn btn-success" @onclick="()=> isChangeCamNameOpen = true">更改鏡頭名稱</button>
+<ChangeCamName IsChangeCamNameOpen="@isChangeCamNameOpen" setIsChangeCamNameOpen="@SetIsChangeCamNameOpen" />
+
+
+@code {
+    private string CameraId = string.Empty;
+    private string GKey = string.Empty;
+    private string is_conn = string.Empty;
+    private string cam_name = string.Empty;
+
+    private List<string> CamIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+
+    private int CamCount = 0;
+    private List<string> DangerTimes = new List<string>();
+    private List<string> OtherUsers = new List<string>();
+    private JsonNode CamJson = new JsonObject() { };
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await CamId();
+        }
+    }
+
+    public async Task CamId()
+    {
+        //回傳list<string>
+        CamIds = await Session.GetCamId();
+        await GetCamNames();
+        CamCount = CamIds.Count;
+    }
+
+    public async Task GetCamNames()
+    {
+        CamNames.Clear();
+        CamNames = new List<string>();
+        foreach(string Id in CamIds)
+        {
+            string name = await Session.GetCamName(Id);
+            CamNames.Add(name);
+        }
+    }
+
+    private async Task UpdateUserData()
+    {
+        await CamId();
+        await G_Key();
+        await IsConn();
+        await Danger();
+        await CamName();
+        Shares();
+    }
+
+    public async Task CamName()
+    {
+        // return string
+        if (CameraId != string.Empty) cam_name = await Session.GetCamName(CameraId);
+        else cam_name = string.Empty;
+
+    }
+
+    public async Task G_Key()
+    {
+        // return string
+        if (CameraId != string.Empty) GKey = await Session.GetG_Key(CameraId);
+        else GKey = string.Empty;
+    }
+
+    public async Task IsConn()
+    {
+        if (CameraId != string.Empty) is_conn = await Session.GetConn(CameraId);
+        else is_conn = string.Empty;
+    }
+
+    public async Task Danger()
+    {
+        //回傳list<string>
+        if (CameraId != string.Empty) DangerTimes = await Session.GetDanger(CameraId);
+        else DangerTimes = new List<string>();
+    }
+
+    public void Shares()
+    {
+        //回傳list<string>
+        if (CameraId != string.Empty) OtherUsers = Sql.GetShares(CameraId);
+        else OtherUsers = new List<string>();
+    }
+
+    private bool isAddCameraOpen = false;
+
+    private async Task SetIsAddCameraOpen(bool value)
+    {
+        isAddCameraOpen = value;
+        await UpdateUserData();
+    }
+
+    private bool isDeleteCameraOpen = false;
+
+    private async Task SetIsDeleteCameraOpen(bool value)
+    {
+        CameraId = string.Empty;
+        isDeleteCameraOpen = value;
+        await UpdateUserData();
+    }
+
+    private bool isChangeCamNameOpen = false;
+
+    private async Task SetIsChangeCamNameOpen(bool value)
+    {
+        isChangeCamNameOpen = value;
+        await UpdateUserData();
+    }
+
+    private async Task UpdateCamId(ChangeEventArgs e)
+    {
+        CameraId = e.Value!.ToString()!;
+
+        await G_Key();
+        await IsConn();
+        await Danger();
+        await CamName();
+        Shares();
+    }
+
+
+    private void Back()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+}

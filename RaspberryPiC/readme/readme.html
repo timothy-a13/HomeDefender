@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+
+    <link rel="stylesheet" type="text/css" href="stylesheet.css" media="screen">
+
+    <title>使用者入門</title>
+  </head>
+
+<body>
+
+    <div class="container">
+        <div id="header">
+            <h1>使用者入門</h1>
+            <h2>適用於 Linux 開發的 Visual C++</h2>
+        </div>
+    
+    <table>
+    <tr>    
+    <div id="main_content">
+        
+        <td>
+        <div id="lpanel">
+            <h1>正在設定適用於 Linux 開發的專案</h1>
+
+            <p>您可以利用此工作負載為 Linux 伺服器、電腦及裝置撰寫 C++ 程式碼。您可以從 VS 中管理這些機器的連線。VS 會自動複製並遠端建置來源，且可使用偵錯工具啟動應用程式。我們的專案系統支援以特定架構 (包括 ARM) 為目標。</p>
+            <img src="images\ArchOptions.gif"/>
+            
+            <h1>正在連線到 Linux</h1>
+            <h2>必要條件</h2>
+            <p>目前僅支援在 Linux 目標機器上以遠端方式建置。我們不受特定 Linux 發行版的限制，但我們確實依賴某些工具的存在。具體說來，我們需要 openssh-server、g++、gdb 及 gdbserver。請使用您最愛的套件管理員安裝這些工具，例如在以 Debian 為基礎的系統上: sudo apt-get 安裝 openssh-server、g++ gdb 及 gdbserver</p>
+            
+            <h2>第一個連線</h2>
+            <p>第一次將 Linux 機器設定為目標時，系統會提示您輸入連線資訊。這是透過建置專案所觸發。</p>
+            <img src="images\firstconnection.png"/>
+                
+            <h2>新增及移除連線</h2>
+            <p>若要新增連線，請前往 [工具] > [選項] 並搜尋 [連線]，連線管理員位於 [跨平台] 下方。您可以從這裡新增及移除連線。</p>
+            <img src="images\ManageConnections.gif"/>
+            
+            <p>若要變更專案所使用的連線，請前往專案屬性一般設定，並更新遠端建置機器選項。</p>
+            <img src="images\ChangeRemote.gif"/>
+            
+            <h1>專案屬性</h1>
+            <p>控制 C++ 編譯所需的所有選項均公開在專案屬性頁面上。我們將具體說明 Linux 的運作方式。首先，在 [一般] 設定下方，您會看到遠端根目錄已根據預設設定為 ~/projects/，而我們會將遠端專案目錄設定為符合該位置的專案名稱。</p>
+            <img src="images\OutputTypes.gif"/>
+            
+            <p>查看專案的 [一般] 設定，即可了解如何設定輸出及中繼目錄。此外，您會看到此專案已設定為應用程式，因此可執行檔位於 bin/x64/Debug/ 下方作為 ConsoleApplication1.out。請注意，對於設定類型，我們也支援靜態及動態程式庫。</p>
+            
+            <p>在 [連結器] > [輸入] 屬性頁面上新增其他程式庫相依性。</p>
+            <img src="images\linker.png"/>
+            
+            <p>您可以將其他啟動前命令傳遞給偵錯工具，以執行在遠端 Linux 機器上啟動圖形化應用程式等動作。</p>
+            <img src="images\debuggerexport.png"/>
+            
+            <p>您也可以傳送建置後事件以控制遠端行為，例如在這個範例中，匯出 gpio pin 以供使用，而不需要以進階使用者的身分執行可執行檔。</p>
+            <img src="images\postbuild.png"/>
+            
+        </div>
+        </td>
+        <td>
+        <div id="rpanel">
+
+            <h1>資源</h1>
+
+            <p>查看<a href="http://aka.ms/vslinux">適用於 Linux 開發的 VC++ 頁面</a>，這裡會持續張貼最新資訊，並提供更深入的使用方式詳細資料。</p>
+            <h1>提供意見反應</h1>
+            <p>使用 Visual Studio 中的傳送意見反應函式或透過<a href=" https://developercommunity.visualstudio.com/">開發人員社群</a>連絡我們</p>
+        </div>
+        </td>   
+    </div>
+    </tr>
+    </table>
+    </div>
+</body>
+</html>

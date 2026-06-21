@@ -1,0 +1,106 @@
+﻿@using BlazorApp1.Data;
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject EventManager Events
+@inject IToastService toastService
+
+<div class="modal-background" style="display: @(IsChangeScoreOpen ? "block" : "none")"></div>
+
+@if (IsChangeScoreOpen)
+{
+    <div class="modal d-block" style="animation: @(IsChangeScoreClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        @*固定Modal 填滿畫面*@
+        <div class="modal-dialog modal-dialog-centered">
+            @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">修改危險程度逾值</h5>
+                </div>
+                <div class="modal-body">
+                    通知敏感度 : <input type="range" min="0" max="10" class="modal-input" @bind="newScore" @oninput="OnInput" /> @newScore
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    private int newScore = 5;
+    private string NewScore = string.Empty;
+
+    [Parameter]
+    public bool IsChangeScoreOpen { get; set; }
+    public bool IsChangeScoreClose { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> setisChangeScore { get; set; }
+
+    private bool IsMoveBar = false;
+    private void OnInput(ChangeEventArgs e)
+    {
+        IsMoveBar = true;
+        newScore = Convert.ToInt32(e.Value);
+        StateHasChanged();
+    }
+
+
+    private async Task CloseModal()
+    {
+        IsChangeScoreClose = true;
+        await Task.Delay(700);
+        IsChangeScoreClose = false;
+        IsChangeScoreOpen = false;
+        await setisChangeScore.InvokeAsync(IsChangeScoreOpen);
+        NewScore = string.Empty;
+    }
+
+    private async Task SaveModal()
+    {
+        NewScore = newScore.ToString();
+        IsChangeScoreClose = true;
+        await Change_Score();
+        await Task.Delay(700);
+        IsChangeScoreClose = false;
+        IsChangeScoreOpen = false;
+        await setisChangeScore.InvokeAsync(IsChangeScoreOpen);
+        NewScore = string.Empty;
+    }
+
+    public async Task Change_Score()
+    {
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+        string Email = (await Session.GetElement<string>("email")).Value!;
+
+        if (NewScore == string.Empty)
+            toastService.ShowSuccess("請輸入新危險程度逾值");
+        else
+        {
+            if (int.TryParse(NewScore, out _))
+            {
+                int newscore = Int32.Parse(NewScore);
+                Console.WriteLine(newscore);
+                if (newscore > 10 || newscore < 0)
+                    toastService.ShowSuccess("請輸入介於0~10的數字");
+                else
+                {
+                    Sql.ReScore(uid, newscore);
+                    toastService.ShowSuccess("修改成功");
+                    await Session.Set_User_Info(Email);
+                }
+               
+            }
+            else
+                toastService.ShowSuccess("請輸入介於0~10的數字");
+        }
+        toastService.ClearQueueSuccessToasts();
+    }
+}

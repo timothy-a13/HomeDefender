@@ -1,0 +1,131 @@
+﻿@using BlazorApp1.Data;
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject NatificationHubConn Natification
+@inject IToastService toastService
+
+<div class="modal-background" style="display: @(IsAddCameraOpen ? "block" : "none")"></div>
+
+@if (IsAddCameraOpen)
+{
+    <div class="modal d-block" style="animation: @(IsAddCameraClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+
+        <div class="modal-dialog modal-dialog-centered">  @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新增鏡頭</h5>
+                </div>
+                <div class="modal-body">
+                    鏡頭名稱 : <input type="text" class="modal-input" @bind="CameraName" />
+                    <br><br>
+                    鏡頭ID : <input type="text" class="modal-input" @bind="CameraId" />
+                    <br><br>
+                    鏡頭金鑰 : <input type="text" class="modal-input" @bind="CameraGKey" />
+                    <br><br>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string CameraName = "攝影機";
+    private string CameraGKey = string.Empty;
+    private string CameraId = string.Empty;
+    private List<string> CameraIds = new List<string>();
+
+    [Parameter]
+    public bool IsAddCameraOpen { get; set; } = false;
+    public bool IsAddCameraClose { get; set; } = false;
+
+
+    [Parameter]
+    public EventCallback<bool> setIsAddCameraOpen { get; set; }
+
+    //拿到所有擁有相機的id
+    public async Task CamId()
+    {
+        //回傳list<string>
+        CameraIds = await Session.GetCamId();
+    }
+
+    private async Task CloseModal()
+    {
+        IsAddCameraClose = true;
+        await Task.Delay(700);
+        IsAddCameraClose = false;
+        IsAddCameraOpen = false;
+        await setIsAddCameraOpen.InvokeAsync(IsAddCameraOpen);
+        CameraName = "攝影機";
+        CameraGKey = string.Empty;
+        CameraId = string.Empty;
+
+    }
+
+    private async Task SaveModal()
+    {
+        IsAddCameraClose = true;
+        await Task.Delay(700);
+        IsAddCameraClose = false;
+        await CamId();
+        await AddCam();
+        await CamId();
+        IsAddCameraOpen = false;
+        await setIsAddCameraOpen.InvokeAsync(IsAddCameraOpen);
+        CameraName = "攝影機";
+        CameraGKey = string.Empty;
+        CameraId = string.Empty;
+    }
+
+    public async Task AddCam()
+    {
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+        int AddCamState = AddCamVerify(uid);
+
+        if (AddCamState == 2){
+            //await JSRuntime.InvokeVoidAsync("alert", "尚有欄位未填寫");
+            toastService.ShowSuccess("尚有欄位未填寫");
+        }
+        else if (AddCamState == 3){
+            //await JSRuntime.InvokeVoidAsync("alert", "無此鏡頭");
+            toastService.ShowSuccess("無此鏡頭");
+        }
+        else if (AddCamState == 4){
+            //await JSRuntime.InvokeVoidAsync("alert", "已擁有此鏡頭");
+            toastService.ShowSuccess("已擁有此鏡頭");
+            await Session.Set_Cam_Info(uid);
+        }
+        else
+        {
+            Sql.AddCamera(uid, CameraId, CameraGKey, CameraName);
+            int cam = Int32.Parse(CameraId);
+            await Natification.AddCamera(cam);
+            //await JSRuntime.InvokeVoidAsync("alert", "新增鏡頭成功");
+            toastService.ShowSuccess("新增鏡頭成功");
+            await Session.Set_Cam_Info(uid);
+        }
+
+        CameraGKey = string.Empty;
+        CameraId = string.Empty;
+        CameraName = "攝影機";
+
+        toastService.ClearQueueSuccessToasts();
+    }
+
+    public int AddCamVerify(int uid)
+    {
+        if (CameraName == string.Empty || CameraId == string.Empty || CameraGKey == string.Empty)
+            return 2;
+        if (!Sql.Camera_Verify(CameraId, CameraGKey))
+            return 3;
+        if (Sql.UserCameraVerify(uid, CameraId))
+            return 4;
+        return 1;
+    }
+}

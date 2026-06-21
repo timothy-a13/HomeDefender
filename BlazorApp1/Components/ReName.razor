@@ -1,0 +1,85 @@
+﻿@using BlazorApp1.Data;
+@inject IJSRuntime JSRuntime
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject EventManager Events
+@inject IToastService toastService
+
+<div class="modal-background" style="display: @(IsRenameOpen ? "block" : "none")"></div>
+
+@if (IsRenameOpen)
+{
+    <div class="modal d-block" style="animation: @(IsRenameClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        @*固定Modal 填滿畫面*@
+        <div class="modal-dialog modal-dialog-centered">
+            @*置中*@
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">修改暱稱</h5>
+                </div>
+                <div class="modal-body">
+                    新暱稱 : <input type="text" class="modal-input" @bind="NewName" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">確定</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string NewName = string.Empty;
+
+    [Parameter]
+    public bool IsRenameOpen { get; set; }
+    public bool IsRenameClose { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> setisRename { get; set; }
+
+    private async Task CloseModal()
+    {
+        IsRenameClose = true;
+        await Task.Delay(700);
+        IsRenameClose = false;
+        IsRenameOpen = false;
+        await setisRename.InvokeAsync(IsRenameOpen);
+        NewName = string.Empty;
+    }
+
+    private async Task SaveModal()
+    {
+        IsRenameClose = true;
+        await Rename();
+        await Task.Delay(700);
+        IsRenameClose = false;
+        IsRenameOpen = false;
+        await setisRename.InvokeAsync(IsRenameOpen);
+        NewName = string.Empty;
+    }
+
+    public async Task Rename()
+    {
+        toastService.ClearSuccessToasts();
+        int uid = (await Session.GetElement<int>("uid")).Value;
+        string Email = (await Session.GetElement<string>("email")).Value!;
+
+        if (NewName != string.Empty)
+        {
+            Sql.ReName(uid, NewName);
+            //await JSRuntime.InvokeVoidAsync("alert", "修改暱稱成功");
+            toastService.ShowSuccess("修改暱稱成功");
+            await Session.Set_User_Info(Email);
+            //
+            (Events["OnNicknameChanged"] as EventHandler<NicknameArgs>)?.Invoke(this, new() { Nickname = NewName });
+        }
+        else
+        {
+            //await JSRuntime.InvokeVoidAsync("alert", "請輸入新暱稱");
+            toastService.ShowSuccess("請輸入新暱稱");
+        }
+        toastService.ClearQueueSuccessToasts();
+    }
+}

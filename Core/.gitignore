@@ -1,0 +1,30 @@
+.vscode/
+
+# interpreter bytecode
+__pycache__/
+
+# experiment results
+runs/
+videos/
+weights
+
+# evaluation tools folder
+val_utils/
+
+# zip files
+*.zip
+
+# exports
+*_openvino_model
+*.torchscript
+*.pt
+*.onnx
+*.engine
+
+# interactive plots
+*.html
+
+# Keep the model files required by Core/core.py. They are stored with Git LFS.
+!weights/
+!weights/best.pt
+!weights/osnet_x0_25_msmt17.pt

@@ -1,0 +1,190 @@
+﻿@using System.Text
+@using BlazorApp1.Data
+@using System.Security.Cryptography;
+@using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+@inject IJSRuntime JSRuntime
+@inject SqlManager Sql
+@inject IToastService toastService
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+
+<div class="modal-background" style="display: @(IsRegisterOpen ? "block" : "none")"></div>
+
+@if (IsRegisterOpen)
+{
+    <div class="modal d-block" style="animation: @(IsRegisterClose ? "fadeOut":"fadeIn") 0.7s forwards;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">註冊</h5>
+                </div>
+                <div class="modal-body">
+
+                    帳號 :
+                    <input name="email" type="text" placeholder="Email" @bind="InputEmail">
+                    <br>
+
+                    密碼 :
+                    <input name="password" type="password" placeholder="**********" @bind="InputPassword">
+                    <br>
+
+                    密碼確認:
+                    <input name="password2" type="password" placeholder="**********" @bind="InputPassword2">
+                    <br>
+
+                    姓名:
+                    <input name="nickname" type="text" placeholder="請輸入英文姓名" @bind="InputNickname">
+                    <br>
+
+                    <EditForm Model="@gender">
+                        <div class="form-group">
+                            <label>性別:</label>
+                            <InputRadioGroup @bind-Value="@gender.Gender">
+                                <InputRadio Value="1" /> 男
+                                <InputRadio Value="0" /> 女
+                            </InputRadioGroup>
+                        </div>
+                    </EditForm>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveModal">註冊</button>
+                    <button type="button" class="btn btn-primary" @onclick="CloseModal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @*<button class="btn btn-success" @onclick="UserRegister">註冊</button>*@
+}
+@*
+<p>@InputUserId</p>
+<p>@InputEmail</p>
+<p>@InputPassword</p>
+<p>@InputPassword2</p>
+<p>@InputNickname</p>
+<p>@gender.Gender</p>
+*@
+
+@code {
+    private string InputUserId = string.Empty;
+    private string InputEmail = string.Empty;
+    private string InputPassword = string.Empty;
+    private string InputPassword2 = string.Empty;
+    private string InputNickname = string.Empty;
+    private MyGender gender = new MyGender();
+
+
+    private class MyGender
+    {
+        public int Gender { get; set; }
+    }
+
+
+    public async Task UserRegister()
+    {
+        toastService.ClearSuccessToasts();
+        int RegisterState = CheckInput();
+        if (RegisterState == 1)
+        {
+            InputUserId =  Guid.NewGuid().ToString();
+            string HashPassword = Encryption(InputUserId,InputPassword);
+            Sql.Register(InputUserId, InputEmail, HashPassword, InputNickname, gender.Gender);
+            //await JSRuntime.InvokeVoidAsync("alert", "註冊成功");
+            toastService.ShowSuccess("註冊成功");
+            navigationManager.NavigateTo("/", forceLoad: true);
+        }
+        else if (RegisterState == 2)
+        {
+            //await JSRuntime.InvokeVoidAsync("alert", "資料尚有空格未填寫完成");
+            toastService.ShowSuccess("資料尚有空格未填寫完成");
+            await CloseModal();
+        }
+        else if (RegisterState == 3)
+        {
+            //await JSRuntime.InvokeVoidAsync("alert", "此電子郵件已存在");
+            toastService.ShowSuccess("此電子郵件已存在");
+            await CloseModal();
+        }
+        else if (RegisterState == 4)
+        {
+           // await JSRuntime.InvokeVoidAsync("alert", "密碼長度至少為6個字元");
+            toastService.ShowSuccess("密碼長度至少為6個字元");
+            await CloseModal();
+        }
+        else if (RegisterState == 5)
+        {
+            //await JSRuntime.InvokeVoidAsync("alert", "密碼輸入不一致");
+            toastService.ShowSuccess("密碼輸入不一致");
+            await CloseModal();
+        }
+        toastService.ClearQueueSuccessToasts();
+    }
+
+    public int CheckInput()
+    {
+        if (InputEmail == string.Empty || InputPassword == string.Empty || InputPassword2 == string.Empty || InputNickname == string.Empty)
+            return 2;
+        if (Sql.IsExist(InputEmail))
+            return 3;
+        if (InputPassword.Length < 6)
+            return 4;
+        if (InputPassword != InputPassword2)
+            return 5;
+
+        return 1;
+
+    }
+
+    public string Encryption(string SaltString,string Password)
+    {
+        byte[] Salt = Encoding.UTF8.GetBytes(SaltString);
+
+        string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+            password: Password!,
+            salt: Salt,
+            prf: KeyDerivationPrf.HMACSHA256,
+            iterationCount: 100000,
+            numBytesRequested: 256 / 8));
+
+        return hashed;
+    }
+
+    [Parameter]
+    public bool IsRegisterOpen { get; set; } = false;
+    public bool IsRegisterClose { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<bool> SetIsRegisterOpen { get; set; }
+
+    private async Task CloseModal()
+    {
+        IsRegisterClose = true;
+        await Task.Delay(700);
+        IsRegisterClose = false;
+        IsRegisterOpen = false;
+        await SetIsRegisterOpen.InvokeAsync(IsRegisterOpen);
+        ClearString();
+    }
+
+    private async Task SaveModal()
+    {
+        
+        IsRegisterClose = true;
+        await Task.Delay(700);
+        IsRegisterClose = false;
+        IsRegisterOpen = false;
+        await UserRegister();
+        await SetIsRegisterOpen.InvokeAsync(IsRegisterOpen);
+        ClearString();
+    }
+
+    private void ClearString()
+    {
+        InputUserId = string.Empty;
+        InputEmail = string.Empty;
+        InputPassword = string.Empty;
+        InputPassword2 = string.Empty;
+        InputNickname = string.Empty;
+        gender = new MyGender();
+    }
+}

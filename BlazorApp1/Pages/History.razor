@@ -1,0 +1,121 @@
+﻿@page "/History"
+
+@*
+    1.動態string 陣列
+    2.camara改成camera
+*@
+
+@inject IJSRuntime JSRuntime
+@using BlazorApp1.Components
+@using BlazorApp1.Data
+@using System.Collections.Generic
+@using Microsoft.JSInterop
+@inject SessionManager Session
+@inject SqlManager Sql
+@inject IniHandler Handler
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+
+<h3>歷史畫面</h3>
+@if (CameraNum != 0 )
+{
+
+    <div class="custom-player">
+        <HlsPlayer @key="CameraUrl" SrcUrl=@CameraUrl Class="" Muted Autoplay Controls/>
+    </div>
+
+    <div class="button_box">
+        <div class="slider">
+            @foreach (int cam_index in Enumerable.Range(0, CameraNum))
+            {
+                <button class="btn" @onclick="() => SelectCamera(Camera[cam_index])">
+                    <div class="button_content">
+                        <p>@CamNames[cam_index]</p>
+                    </div>
+                </button>
+            }
+        </div>
+</div>
+@*<button class="btn btn-success" @onclick="CamId">測試1</button>*@
+}
+else
+{
+    <div class="centered-content">
+        <button class="btn" @onclick="goSetting">未擁有鏡頭 點我移置設定 </button>
+    </div>
+}
+
+@code {
+    public string CameraUrl = string.Empty;
+    public string Select_Camera = string.Empty;
+    private string[] Camera = new string[] { };
+    private int CameraNum = 0;
+
+    private List<string> CamIds = new List<string>();
+    private List<string> CamNames = new List<string>();
+
+   
+    public void goSetting()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+    public async Task SelectCamera(string cam_id)
+    {
+        string HlsHost = Handler["ADDRESS"]["HlsHost"];
+        Select_Camera = cam_id;
+        string g_key = await Session.GetG_Key(cam_id);
+        CameraUrl = HlsHost + g_key + "/index.m3u8";
+    }
+
+    public async Task CamId()
+    {
+        CamIds = await Session.GetCamId();
+        await GetCamNames();
+        CameraNum = CamIds.Count();
+        Camera = new string[CameraNum];
+        if (CamIds != null)
+        {
+            int index = 0;
+            foreach (string id in CamIds)
+            {
+                Camera[index] = id;
+                index++;
+            }
+        }
+        if (CameraNum > 0)
+        {
+            await SelectCamera(Camera[0]);
+        }
+
+    }
+
+    public async Task GetCamNames()
+    {
+        List<string> tmp = new();
+        foreach (string Id in CamIds)
+        {
+            string name = await Session.GetCamName(Id);
+            tmp.Add(name);
+        }
+        CamNames = tmp;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async Task ReRun()
+    {
+        if (await Session.IsInitialized())
+        {
+            await CamId();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (await Session.IsInitialized())
+        {
+             await CamId();
+        }
+       
+    }
+}

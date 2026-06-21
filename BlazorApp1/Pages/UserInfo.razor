@@ -1,0 +1,103 @@
+﻿@page "/UserInfo"
+@using BlazorApp1.Data
+@using BlazorApp1.Components
+@inject Microsoft.AspNetCore.Components.NavigationManager navigationManager
+@inject SessionManager Session
+@inject SqlManager Sql
+
+<button class="btn" @onclick="Back">返回</button>
+
+<br>
+<br>
+<h2>基本資料</h2>
+<p>UID:<span>@Uid</span></p>
+<p>user_id: <span>@UserId</span></p>
+<p>名稱: <span>@Name</span></p>
+<button class="btn" @onclick="()=> isRename = true">修改暱稱</button>
+<ReName IsRenameOpen="@isRename" setisRename="@SetisRename" />
+<p>電子郵件: <span>@Email</span></p>
+<p>性別: <span>@gender</span></p>
+<p>危險程度逾值: <span>@Score</span></p>
+
+<button class="btn" @onclick="()=> isChangeScore = true">修改危險程度逾值</button>
+<ChangeScore IsChangeScoreOpen="@isChangeScore" setisChangeScore="@SetisChangeScore" />
+
+
+<button class="btn" @onclick="()=> isChangePassword = true">修改密碼</button>
+<ChangePassword IsChangePasswordOpen="@isChangePassword" setisChangePassword="@SetisChangePassword" />
+
+
+
+
+@code {
+    //public Userinfo User = new Userinfo();
+    private string Uid = string.Empty;
+    private string UserId = string.Empty;
+    private string Name = string.Empty;
+    private string Email = string.Empty;
+    private string gender = string.Empty;
+    private string Score = string.Empty;
+
+
+    //string IndexString = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Session.IsInitialized())
+        {
+            await User_Info();
+        }
+    }
+
+    public async Task User_Info()
+    {
+        Uid = (await Session.GetElement<int>("uid")).Value.ToString();
+        //Console.WriteLine((await Session.GetElement<int>("uid")).Value);
+        Score = (await Session.GetElement<int>("score")).Value.ToString();
+        UserId = (await Session.GetElement<string>("user_id")).Value!;
+        Name = (await Session.GetElement<string>("nickname")).Value!;
+        Email = (await Session.GetElement<string>("email")).Value!;
+        Score = (await Session.GetElement<int>("score")).Value.ToString();
+        if ((await Session.GetElement<string>("gender")).Value == "0") gender = "女性";
+        else gender = "男性";
+
+    }
+
+    private async Task UpdateUserData()
+    {
+        await User_Info();
+    }
+
+    private void Back()
+    {
+        navigationManager.NavigateTo("/UserUI", forceLoad: true);
+    }
+
+    private bool isRename = false;
+
+    private async Task SetisRename(bool value)
+    {
+        isRename = value;
+        await UpdateUserData();
+    }
+
+    private bool isChangeScore = false;
+
+    private async Task SetisChangeScore(bool value)
+    {
+        isChangeScore = value;
+        await UpdateUserData();
+    }
+
+    private async Task UpdateCamId(ChangeEventArgs e)
+    {
+        await User_Info();
+    }
+
+    private bool isChangePassword = false;
+
+    private void SetisChangePassword(bool value)
+    {
+        isChangePassword = value;
+    }
+}
