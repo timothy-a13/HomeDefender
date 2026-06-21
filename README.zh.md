@@ -372,5 +372,3 @@ ffmpeg \
 - [ASP.NET Core Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
 
 ---
-
-HomeDefender 為資訊工程專題研究成果，重點在於展示 edge 串流、即時多物件追蹤、異常行為規則、跨行程通知與完整 Web 監控介面的整合。
