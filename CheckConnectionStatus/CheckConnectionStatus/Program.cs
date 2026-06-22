@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
-using System.Data.SqlClient;
+using System.Data;
+using Microsoft.Data.SqlClient;
 using SubprocessHandler;
 
 namespace RetrieveJson
@@ -21,8 +22,6 @@ namespace RetrieveJson
             HashSet<string> pre_state = new();
             JsonNode? pre_json = null;
             int pre_stream_num = 0;
-            string command_str;
-
             Killer killer = new();
             Runner runner = new();
 
@@ -33,8 +32,6 @@ namespace RetrieveJson
                 string content = response.Content.ReadAsStringAsync().Result;
                 JsonNode cur_json = JsonNode.Parse(content)!;
                 int cur_stream_num = cur_json["streams"]!.AsArray().Count;
-                command_str = "";
-
                 foreach (JsonNode? stream in cur_json["streams"]!.AsArray())
                 {
                     stream!["name"] = stream!["name"]!.ToString().Split('.')[0];
@@ -65,36 +62,36 @@ namespace RetrieveJson
                     {
                         if (!pre_state.Contains(cur_json["streams"]![i]!["name"]!.ToString()))
                         {
-                            command_str += Add_Query(cur_json["streams"]![i]!["name"]!.ToString(), 1);
-                            Console.WriteLine(cur_json["streams"]![i]!["name"]!.ToString() + " has been ADD");
-                            int cam_id = Find_cam_id(cur_json["streams"]![i]!["name"]!.ToString());
+                            string streamName =
+                                cur_json["streams"]![i]!["name"]!.ToString();
+                            Console.WriteLine(streamName + " has been ADD");
+                            int cam_id = FindCameraId(streamName);
                             if (cam_id != -1)
+                            {
                                 runner.RunSubprocess(cam_id);
+                            }
+                            UpdateConnectionState(streamName, true);
                         }
                     }
                     //找刪除的stream
-                    for (int i = 0; i < pre_stream_num; i++)
+                    if (pre_json?["streams"] is JsonArray previousStreams)
                     {
-                        if (!cur_state.Contains(pre_json["streams"][i]["name"].ToString()))
+                        foreach (JsonNode? previousStream in previousStreams)
                         {
-                            command_str += Add_Query(pre_json["streams"][i]["name"].ToString(), 0);
-                            Console.WriteLine(pre_json["streams"][i]["name"].ToString() + " has been DEL");
-                            int cam_id = Find_cam_id(pre_json["streams"][i]["name"].ToString());
-                            if (cam_id != -1)
-                                killer.DelSubprocess(cam_id);
-                        }
-                    }
-                    //SQL 指令執行
-                    if (command_str != "")
-                    {
-                        using (SqlConnection connection = new SqlConnection(ConnectionString))
-                        {
-                            using (SqlCommand command = new SqlCommand(command_str, connection))
+                            string? streamName =
+                                previousStream?["name"]?.ToString();
+                            if (streamName is null || cur_state.Contains(streamName))
                             {
-                                connection.Open();
-                                command.ExecuteNonQuery();
-                                connection.Close();
+                                continue;
                             }
+
+                            Console.WriteLine(streamName + " has been DEL");
+                            int cam_id = FindCameraId(streamName);
+                            if (cam_id != -1)
+                            {
+                                killer.DelSubprocess(cam_id);
+                            }
+                            UpdateConnectionState(streamName, false);
                         }
                     }
                     //新舊cur_stream交接
@@ -106,38 +103,32 @@ namespace RetrieveJson
                 }
             }
         }
-        static string Add_Query(string name, int b)
+        static void UpdateConnectionState(string name, bool isConnected)
         {
-            return " UPDATE camera_info SET is_conn =" + b.ToString() + " WHERE g_key ='" + name + "';";
+            const string query =
+                "UPDATE camera_info SET is_conn = @isConnected WHERE g_key = @name;";
+
+            using SqlConnection connection = new(ConnectionString);
+            using SqlCommand command = new(query, connection);
+            command.Parameters.Add("@isConnected", SqlDbType.Bit).Value = isConnected;
+            command.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name;
+
+            connection.Open();
+            command.ExecuteNonQuery();
         }
 
-        static int Find_cam_id(string name)
+        static int FindCameraId(string name)
         {
-            int cam_id = -1;
-            string query = "SELECT * FROM camera_info WHERE g_key = @name;";
+            const string query =
+                "SELECT cam_id FROM camera_info WHERE g_key = @name;";
 
-            using (SqlConnection connection = new SqlConnection(ConnectionString))
-            {
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@name", name);
+            using SqlConnection connection = new(ConnectionString);
+            using SqlCommand command = new(query, connection);
+            command.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name;
 
-                    connection.Open();
-
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        // 讀取結果集中的資料
-                        while (reader.Read())
-                        {
-                            cam_id = (int)reader["cam_id"];
-                        }
-                    }
-
-                    connection.Close();
-                }
-            }
-
-            return cam_id;
+            connection.Open();
+            object? cameraId = command.ExecuteScalar();
+            return cameraId is int value ? value : -1;
         }
     }
 }

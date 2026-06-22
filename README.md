@@ -31,7 +31,7 @@ The project addresses several weaknesses of traditional surveillance: dependence
 HomeDefender is divided into three major areas:
 
 1. **Camera edge:** A Raspberry Pi captures video, encodes it as H.264, and publishes it over RTMP.
-2. **Server:** SRS receives streams; a monitor starts and stops storage and AI processes according to stream state; SQL Server stores users, cameras, and events; NGINX serves recorded HLS files.
+2. **Server:** SRS receives streams; `CheckConnectionStatus` and `SubprocessHandler` manage per-camera AI and HLS processes; SQL Server stores users, cameras, and events; NGINX serves recorded HLS files.
 3. **User application:** Blazor Server provides account, camera, streaming, incident, recording, chart, and notification features.
 
 <p align="center">
@@ -50,8 +50,9 @@ flowchart LR
     SRS --> AI["Python AI Core"]
     SRS --> Saver["FFmpeg HLS Splitter"]
 
-    Monitor -->|"Start / stop per-camera processes"| AI
-    Monitor -->|"Start / stop per-camera processes"| Saver
+    Monitor --> Lifecycle["SubprocessHandler"]
+    Lifecycle -->|"Start / stop"| AI
+    Lifecycle -->|"Start / stop"| Saver
 
     AI -->|"YOLOv8 + OC-SORT"| Rules["Trajectory & Weapon Rules"]
     Rules -->|"Named Pipe"| Web
@@ -64,13 +65,14 @@ flowchart LR
 
     Base["BaseSystem<br/>Camera registration"] --> DB[("SQL Server")]
     Monitor --> DB
+    Lifecycle -->|"Store process IDs"| DB
     AI --> DB
     Web --> DB
 ```
 
 When a camera starts, it first sends its camera ID and key to `BaseSystem`. The camera begins publishing its RTMP stream only after the server has initialized its database records and storage directories.
 
-`CheckConnectionStatus` continuously reads the SRS stream API. Whenever a stream comes online or goes offline, it starts or terminates the dedicated HLS storage and AI analysis processes for that camera.
+`CheckConnectionStatus` continuously reads the SRS stream API. Whenever a stream comes online or goes offline, it delegates process lifecycle management to `SubprocessHandler`. Its `Runner` starts the camera's Python AI analysis and FFmpeg HLS splitter and records their process IDs, while `Killer` terminates both processes when the stream disconnects.
 
 <p align="center">
   <img src="./assets/pipeline2.png" alt="Camera, server, and notification workflow" width="900">
@@ -171,6 +173,10 @@ The Blazor Server application includes:
 ├── CheckConnectionStatus/     # SRS stream and child-process lifecycle monitor
 │   └── CheckConnectionStatus/
 │       └── Program.cs
+├── SubprocessHandler/         # Per-camera AI and HLS process management library
+│   └── SubprocessHandler/
+│       ├── Runner.cs          # Starts AI/HLS processes and records their PIDs
+│       └── Killer.cs          # Stops processes and clears their PIDs
 ├── BlazorApp1/                # .NET 6 Blazor Server user interface
 │   ├── Components/            # Players, forms, setting dialogs, and charts
 │   ├── Data/                  # SQL, session, notification pipe, and config services
@@ -201,11 +207,11 @@ The Blazor Server application includes:
 | AI | Python, PyTorch, YOLOv8, OC-SORT, OpenCV, NumPy |
 | Server | .NET 6, C#, SQL Server, Named Pipes, FFmpeg |
 | Web | ASP.NET Core Blazor Server, hls.js, mpegts.js, Chart.js |
-| Original deployment | Windows Server and IIS |
+| Deployment | Windows Server and IIS |
 
-## Deployment Requirements
+## System Requirements
 
-This repository contains a complete research-prototype source snapshot, but it is currently **not a one-command deployment**. A full environment requires:
+HomeDefender uses the following server, AI, streaming, and edge components:
 
 - Windows Server
 - .NET 6 SDK or Runtime
@@ -224,42 +230,23 @@ git lfs install
 git lfs pull
 ```
 
-In addition to packages listed in `Core/requirements.txt`, the project-specific Python code uses:
-
-```bash
-pip install pymssql pythonnet ffmpeg-python
-```
-
-### External or Missing Deployment Resources
-
-The current source snapshot does not include the following required resources:
-
-- SQL Server schema and initialization scripts
-- Production SRS configuration and TLS certificates
-- Production NGINX configuration and TLS certificates
-- The `SubprocessHandler` source project
-- The complete HLS storage process launched by `SubprocessHandler`
-
-`CheckConnectionStatus.csproj` currently references:
-
-```text
-../../SubprocessHandler/SubprocessHandler/SubprocessHandler.csproj
-```
-
-That project is not present in this repository. Before building this module, restore the original project or reimplement its `Runner` and `Killer` responsibilities for starting and stopping each camera's AI and HLS processes.
-
 ## Configuration
 
-Copy `.env.example` into your preferred local environment configuration and replace its sample values. Secret-bearing local files are excluded by `.gitignore`.
+Use `.env.example` as the template for database, streaming, storage, and runtime settings.
 
-Before starting the web application, copy `BlazorApp1/config.example.ini` to `BlazorApp1/config.ini` and configure the public URLs for your deployment.
+Copy `BlazorApp1/config.example.ini` to `BlazorApp1/config.ini` and configure the public URLs for the web application, HLS files, and FLV streams.
 
 | Location | Configuration |
 | --- | --- |
 | `.env.example` | Environment-variable template for database, SRS, storage, and Python |
 | `RaspberryPiC/RaspberryPiC/config.example.txt` | Camera-side server address, port, camera ID, and key template |
 | `BlazorApp1/config.example.ini` | Public web, HLS, and FLV URL template |
-| `BlazorApp1/appsettings.json` | Safe integrated-authentication SQL Server default |
+| `BlazorApp1/appsettings.json` | ASP.NET Core and SQL Server connection settings |
+
+`SubprocessHandler` reads the shared database and storage settings together
+with `HOMEDEFENDER_RTMP_BASE_URL`, `HOMEDEFENDER_CORE_PATH`,
+`HOMEDEFENDER_PYTHON_EXECUTABLE`, `HOMEDEFENDER_FFMPEG_EXECUTABLE`, and
+`HOMEDEFENDER_PROCESS_START_DELAY_MS` when starting per-camera processes.
 
 ### Services and Ports
 
@@ -288,7 +275,7 @@ The application uses the following main tables:
 | `IPC_table` | Camera-to-Blazor Named Pipe subscriptions |
 | `danger_amount` | Daily trajectory-event statistics |
 
-## Recommended Startup Order
+## Startup Order
 
 1. Create the SQL Server database and tables.
 2. Create the required `dangerous/` and `record/` directories for each camera.
@@ -303,15 +290,13 @@ The application uses the following main tables:
 
 ```powershell
 dotnet build .\BaseSystem\BaseSystem\BaseSystem.csproj
+dotnet build .\SubprocessHandler\SubprocessHandler\SubprocessHandler.csproj
+dotnet build .\CheckConnectionStatus\CheckConnectionStatus\CheckConnectionStatus.csproj
 dotnet build .\BlazorApp1\BlazorApp1.csproj
+
 dotnet run --project .\BaseSystem\BaseSystem\BaseSystem.csproj
-dotnet run --project .\BlazorApp1\BlazorApp1.csproj
-```
-
-Restore `SubprocessHandler` before running `CheckConnectionStatus`:
-
-```powershell
 dotnet run --project .\CheckConnectionStatus\CheckConnectionStatus\CheckConnectionStatus.csproj
+dotnet run --project .\BlazorApp1\BlazorApp1.csproj
 ```
 
 ### AI Core
@@ -319,7 +304,6 @@ dotnet run --project .\CheckConnectionStatus\CheckConnectionStatus\CheckConnecti
 ```bash
 cd Core
 pip install -r requirements.txt
-pip install pymssql pythonnet ffmpeg-python
 
 python core.py \
   --source rtmp://127.0.0.1/live/<camera-key> \

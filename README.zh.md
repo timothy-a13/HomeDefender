@@ -31,7 +31,7 @@ HomeDefender 是一套端到端的智慧影像監控原型。系統由 Raspberry
 HomeDefender 可分為三個主要區塊：
 
 1. **鏡頭端**：Raspberry Pi 擷取攝影機畫面，以 H.264 編碼後透過 RTMP 推流。
-2. **伺服器端**：SRS 接收串流；監控程式依串流狀態啟停儲存及 AI 分析行程；SQL Server 保存使用者、鏡頭與事件資料；NGINX 對外提供 HLS 片段。
+2. **伺服器端**：SRS 接收串流；`CheckConnectionStatus` 與 `SubprocessHandler` 管理各鏡頭的 AI 與 HLS 行程；SQL Server 保存使用者、鏡頭與事件資料；NGINX 對外提供 HLS 片段。
 3. **使用者端**：Blazor Server 提供帳號、鏡頭、串流、事件、錄影、圖表及通知介面。
 
 <p align="center">
@@ -50,8 +50,9 @@ flowchart LR
     SRS --> AI["Python AI Core"]
     SRS --> Saver["FFmpeg HLS Splitter"]
 
-    Monitor -->|"Start / stop per-camera processes"| AI
-    Monitor -->|"Start / stop per-camera processes"| Saver
+    Monitor --> Lifecycle["SubprocessHandler"]
+    Lifecycle -->|"Start / stop"| AI
+    Lifecycle -->|"Start / stop"| Saver
 
     AI -->|"YOLOv8 + OC-SORT"| Rules["Trajectory & Weapon Rules"]
     Rules -->|"Named Pipe"| Web
@@ -64,11 +65,12 @@ flowchart LR
 
     Base["BaseSystem<br/>Camera registration"] --> DB[("SQL Server")]
     Monitor --> DB
+    Lifecycle -->|"Store process IDs"| DB
     AI --> DB
     Web --> DB
 ```
 
-鏡頭首次啟動時，會先向 `BaseSystem` 傳送鏡頭 ID 與金鑰。伺服器完成資料庫及儲存目錄初始化後，鏡頭才開始推送 RTMP 串流。`CheckConnectionStatus` 持續讀取 SRS 的串流 API；當串流上線或離線時，會建立或終止該鏡頭專屬的影像儲存與 AI 分析行程。
+鏡頭首次啟動時，會先向 `BaseSystem` 傳送鏡頭 ID 與金鑰。伺服器完成資料庫及儲存目錄初始化後，鏡頭才開始推送 RTMP 串流。`CheckConnectionStatus` 持續讀取 SRS 的串流 API，並在串流上線或離線時交由 `SubprocessHandler` 管理行程生命週期。`Runner` 會啟動該鏡頭的 Python AI 分析與 FFmpeg HLS 切片行程並記錄 PID；`Killer` 則在串流中斷時終止兩個行程。
 
 <p align="center">
   <img src="./assets/pipeline2.png" alt="鏡頭、伺服器與通知流程" width="900">
@@ -169,6 +171,10 @@ Blazor Server 使用者介面包含：
 ├── CheckConnectionStatus/     # SRS 串流狀態與子行程生命週期監控
 │   └── CheckConnectionStatus/
 │       └── Program.cs
+├── SubprocessHandler/         # 各鏡頭 AI 與 HLS 行程管理函式庫
+│   └── SubprocessHandler/
+│       ├── Runner.cs          # 啟動 AI/HLS 行程並記錄 PID
+│       └── Killer.cs          # 終止行程並清除 PID
 ├── BlazorApp1/                # .NET 6 Blazor Server 使用者介面
 │   ├── Components/            # 播放器、表單、設定對話框與圖表
 │   ├── Data/                  # SQL、Session、通知 Pipe 與設定服務
@@ -199,11 +205,11 @@ Blazor Server 使用者介面包含：
 | AI | Python、PyTorch、YOLOv8、OC-SORT、OpenCV、NumPy |
 | Server | .NET 6、C#、SQL Server、Named Pipe、FFmpeg |
 | Web | ASP.NET Core Blazor Server、hls.js、mpegts.js、Chart.js |
-| 部署 | Windows Server / IIS（原始專案環境） |
+| 部署 | Windows Server、IIS |
 
-## 部署需求
+## 系統需求
 
-這個儲存庫保存的是研究原型的完整程式快照，但目前**不是一鍵啟動專案**。部署前需要準備以下元件：
+HomeDefender 使用以下伺服器、AI、串流與 edge 元件：
 
 - Windows 伺服器
 - .NET 6 SDK 或 Runtime
@@ -222,42 +228,23 @@ git lfs install
 git lfs pull
 ```
 
-Python 除了 `Core/requirements.txt` 內列出的套件外，專案自有程式還使用：
-
-```bash
-pip install pymssql pythonnet ffmpeg-python
-```
-
-### 外部或缺少的部署資源
-
-目前快照未包含下列必要項目，因此要完整啟動所有服務前需先補齊：
-
-- SQL Server 建表及初始化腳本
-- SRS 正式設定檔與 TLS 憑證
-- NGINX 正式設定檔與 TLS 憑證
-- `SubprocessHandler` 專案原始碼
-- 由 `SubprocessHandler` 啟動的 HLS 儲存行程完整來源
-
-`CheckConnectionStatus.csproj` 目前參考：
-
-```text
-../../SubprocessHandler/SubprocessHandler/SubprocessHandler.csproj
-```
-
-但該專案不在此儲存庫中。編譯此模組前，需還原原專案，或重新實作負責啟動及終止每鏡頭 AI/HLS 子行程的 `Runner` 與 `Killer`。
-
 ## 設定
 
-請依照 `.env.example` 建立本機環境設定並替換範例值。包含敏感資訊的本機設定檔已由 `.gitignore` 排除。
+`.env.example` 提供資料庫、串流、儲存與執行環境的設定範本。
 
-啟動 Web 應用程式前，請將 `BlazorApp1/config.example.ini` 複製為 `BlazorApp1/config.ini`，並設定部署環境使用的對外網址。
+將 `BlazorApp1/config.example.ini` 複製為 `BlazorApp1/config.ini`，並設定 Web 應用程式、HLS 檔案與 FLV 串流的對外網址。
 
 | 設定位置 | 內容 |
 | --- | --- |
 | `.env.example` | 資料庫、SRS、儲存與 Python 環境變數範例 |
 | `RaspberryPiC/RaspberryPiC/config.example.txt` | 鏡頭端 Server 位址、port、鏡頭 ID 與金鑰範例 |
 | `BlazorApp1/config.example.ini` | Web、HLS 與 FLV 對外網址範例 |
-| `BlazorApp1/appsettings.json` | 使用整合式驗證的安全 SQL Server 預設值 |
+| `BlazorApp1/appsettings.json` | ASP.NET Core 與 SQL Server 連線設定 |
+
+`SubprocessHandler` 啟動各鏡頭行程時，會讀取共用的資料庫與儲存設定，
+以及 `HOMEDEFENDER_RTMP_BASE_URL`、`HOMEDEFENDER_CORE_PATH`、
+`HOMEDEFENDER_PYTHON_EXECUTABLE`、`HOMEDEFENDER_FFMPEG_EXECUTABLE` 與
+`HOMEDEFENDER_PROCESS_START_DELAY_MS`。
 
 ### 服務與連接埠
 
@@ -286,7 +273,7 @@ pip install pymssql pythonnet ffmpeg-python
 | `IPC_table` | 鏡頭與 Blazor Named Pipe 訂閱者 |
 | `danger_amount` | 每日軌跡事件統計 |
 
-## 建議啟動順序
+## 啟動順序
 
 1. 建立 SQL Server 資料庫及資料表。
 2. 建立每個鏡頭需要的 `dangerous/` 與 `record/` 儲存目錄。
@@ -301,15 +288,13 @@ pip install pymssql pythonnet ffmpeg-python
 
 ```powershell
 dotnet build .\BaseSystem\BaseSystem\BaseSystem.csproj
+dotnet build .\SubprocessHandler\SubprocessHandler\SubprocessHandler.csproj
+dotnet build .\CheckConnectionStatus\CheckConnectionStatus\CheckConnectionStatus.csproj
 dotnet build .\BlazorApp1\BlazorApp1.csproj
+
 dotnet run --project .\BaseSystem\BaseSystem\BaseSystem.csproj
-dotnet run --project .\BlazorApp1\BlazorApp1.csproj
-```
-
-`CheckConnectionStatus` 需先補回 `SubprocessHandler`：
-
-```powershell
 dotnet run --project .\CheckConnectionStatus\CheckConnectionStatus\CheckConnectionStatus.csproj
+dotnet run --project .\BlazorApp1\BlazorApp1.csproj
 ```
 
 ### AI Core
@@ -317,7 +302,6 @@ dotnet run --project .\CheckConnectionStatus\CheckConnectionStatus\CheckConnecti
 ```bash
 cd Core
 pip install -r requirements.txt
-pip install pymssql pythonnet ffmpeg-python
 
 python core.py \
   --source rtmp://127.0.0.1/live/<camera-key> \
