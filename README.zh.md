@@ -155,9 +155,30 @@ Blazor Server 使用者介面包含：
 - 近期事件統計圖表
 - 即時危險 Toast 通知
 
-<p align="center">
-  <img src="./assets/result5.png" alt="使用者及鏡頭設定功能" width="850">
-</p>
+### 系統畫面
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/result2.png" alt="基本資料與危險種類通知設定" width="420"><br>
+      <sub>基本資料與危險種類通知設定</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/result3.png" alt="鏡頭資訊與危險片段列表" width="420"><br>
+      <sub>鏡頭資訊與危險片段列表</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/result4.png" alt="鏡頭共用者資訊" width="420"><br>
+      <sub>鏡頭共用者資訊</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/result5.png" alt="通知、使用者與鏡頭管理操作" width="420"><br>
+      <sub>通知、使用者與鏡頭管理操作</sub>
+    </td>
+  </tr>
+</table>
 
 ## 專案結構
 

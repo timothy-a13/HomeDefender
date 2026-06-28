@@ -4,9 +4,9 @@
 
 [English](./README.md) | [繁體中文](./README.zh.md)
 
-HomeDefender is an end-to-end intelligent video surveillance prototype. It consists of Raspberry Pi camera nodes, a Windows-based server, an AI video analysis core, and a Blazor Server web interface. The system receives live video, continuously tracks people, identifies suspicious trajectories and dangerous objects, and delivers real-time alerts with the corresponding video clips.
+HomeDefender is an end-to-end intelligent video surveillance system. It consists of Raspberry Pi camera nodes, a Windows-based server, an AI video analysis core, and a Blazor Server application. The system receives live video, continuously tracks people, identifies suspicious trajectories and dangerous objects, and delivers real-time alerts with the corresponding video clips.
 
-The project addresses several weaknesses of traditional surveillance: dependence on continuous human monitoring, operator fatigue, and excessive alerts produced by basic motion detection. Instead of merely detecting movement, HomeDefender analyzes whether a person is passing by, waiting, or wandering, and checks whether a bat, knife, or gun is associated with that person.
+The system addresses several weaknesses of traditional surveillance: dependence on continuous human monitoring, operator fatigue, and excessive alerts produced by basic motion detection. Instead of merely detecting that “something moved,” HomeDefender analyzes whether a person is passing by, stopping, or loitering, and determines whether the person appears to be holding a bat, knife, or gun.
 
 <p align="center">
   <img src="./assets/result1.png" alt="HomeDefender user settings interface" width="900">
@@ -18,7 +18,7 @@ The project addresses several weaknesses of traditional surveillance: dependence
 - **Video history:** Splits streams into HLS segments for recent video playback.
 - **Person tracking:** Uses YOLOv8 for detection and OC-SORT for persistent cross-frame IDs.
 - **Trajectory classification:** Classifies movement as passing, waiting, or wandering using speed and direction changes.
-- **Dangerous-object detection:** Detects bats, knives, and guns and associates them with nearby people.
+- **Dangerous-object detection:** Detects bats, knives, and guns and associates them with tracked people.
 - **Real-time alerts:** Sends AI events to subscribed web sessions through Named Pipes.
 - **Automatic incident recording:** Preserves HLS segments surrounding abnormal events.
 - **Manual recording:** Allows users to start and stop recording from the live-stream page.
@@ -157,9 +157,30 @@ The Blazor Server application includes:
 - Recent event statistics
 - Real-time danger notifications displayed as toast messages
 
-<p align="center">
-  <img src="./assets/result5.png" alt="User and camera settings" width="850">
-</p>
+### Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/result2.png" alt="Profile details and notification categories" width="420"><br>
+      <sub>Profile details and notification categories</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/result3.png" alt="Camera information and incident clip list" width="420"><br>
+      <sub>Camera information and incident clip list</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/result4.png" alt="Shared users for a camera" width="420"><br>
+      <sub>Shared users for a camera</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/result5.png" alt="Notification and camera management actions" width="420"><br>
+      <sub>Notification and camera management actions</sub>
+    </td>
+  </tr>
+</table>
 
 ## Repository Structure
 
