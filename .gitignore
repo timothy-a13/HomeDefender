@@ -81,11 +81,6 @@ Core/bytetrack.yaml
 Core/*.pt
 Core/weights/yolov8x.pt
 
-# Screenshots containing original test account or camera data
-assets/result2.png
-assets/result3.png
-assets/result4.png
-
 # Raspberry Pi / Visual Studio Linux build output
 RaspberryPiC/**/*.out
 RaspberryPiC/**/LastRemoteTarget.tlog
