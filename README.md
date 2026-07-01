@@ -2,7 +2,7 @@
 
 > A community security alert system combining YOLOv8, OC-SORT, real-time video streaming, and abnormal behavior analysis
 
-[English](./README.md) | [繁體中文](./README.zh.md)
+[English](./README.md) | [中文](./README.zh.md)
 
 HomeDefender is an end-to-end intelligent video surveillance system. It consists of Raspberry Pi camera nodes, a Windows-based server, an AI video analysis core, and a Blazor Server application. The system receives live video, continuously tracks people, identifies suspicious trajectories and dangerous objects, and delivers real-time alerts with the corresponding video clips.
 
