@@ -2,7 +2,7 @@
 
 > 結合 YOLOv8、OC-SORT、即時串流與異常行為分析的社區安全警示系統
 
-[繁體中文](./README.zh.md) | [English](./README.md)
+[中文](./README.zh.md) | [English](./README.md)
 
 HomeDefender 是一套端到端的智慧影像監控系統。系統由 Raspberry Pi 鏡頭端、Windows 伺服器、AI 影像分析核心與 Blazor Server 組成，可接收即時影像、持續追蹤人物、辨識可疑軌跡與危險物品，並將即時警示及對應影像片段傳送給使用者。
 
